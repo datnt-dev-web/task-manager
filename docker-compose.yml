@@ -1,0 +1,21 @@
+# Môi trường phát triển: chỉ chạy PostgreSQL. API và frontend chạy bằng npm run dev.
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: taskmanager-postgres
+    environment:
+      POSTGRES_USER: taskmanager
+      POSTGRES_PASSWORD: taskmanager
+      POSTGRES_DB: taskmanager
+      TZ: UTC
+    ports:
+      - '5434:5432' # 5434 để không đụng PostgreSQL cài sẵn trên máy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskmanager']
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:

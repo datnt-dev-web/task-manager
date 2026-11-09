@@ -1,0 +1,4 @@
+# Script chạy trong container/máy chủ Linux phải giữ xuống dòng LF
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf
