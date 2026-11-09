@@ -4,6 +4,8 @@ const { GAP, positionBetween, needsRebalance } = require('../utils/position');
 const ActivityService = require('./activity.service');
 
 const MAX_CALENDAR_DAYS = 62;
+const DUE_SOON_DAYS = 3;
+const isoDateIn = (date, timeZone) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
 
 const ASSIGNABLE_ROLES = new Set(['manager', 'member']);
 const CANNOT_MOVE = 'Bạn chỉ có thể di chuyển công việc được giao cho mình';
@@ -28,7 +30,9 @@ class TaskService {
     notificationService,
     activityService,
     projectAccessService,
+    config,
   }) {
+    this.config = config;
     this.unitOfWork = unitOfWork;
     this.taskRepository = taskRepository;
     this.projectRepository = projectRepository;
@@ -51,12 +55,23 @@ class TaskService {
     else if (assignee === 'none') assigneeId = null;
     else assigneeId = assignee;
 
+    // Mốc ngày theo múi giờ nghiệp vụ cho bộ lọc "quá hạn" / "sắp đến hạn".
+    const now = new Date();
+    const today = isoDateIn(now, this.config.TZ_BUSINESS);
+    const soonUntil = isoDateIn(new Date(now.getTime() + DUE_SOON_DAYS * 86_400_000), this.config.TZ_BUSINESS);
     const { rows, count } = await this.taskRepository.search(
       projectId,
-      { ...filters, assigneeId },
+      { ...filters, assigneeId, today, soonUntil },
       { limit: pageSize, offset: (page - 1) * pageSize },
     );
     return { items: rows, meta: { page, pageSize, total: count } };
+  }
+
+  /** SRC-03: tìm nhanh toàn hệ thống — chỉ trong các dự án người dùng là thành viên (Quản trị viên: mọi dự án). */
+  async quickSearch(user, { q, limit }) {
+    const projectIds = user.isAdmin ? null : await this.projectMemberRepository.listProjectIds(user.id);
+    if (projectIds && projectIds.length === 0) return [];
+    return this.taskRepository.quickSearch(projectIds, q, limit);
   }
 
   /** DSH-01: việc chưa xong của tôi ở mọi dự án. */

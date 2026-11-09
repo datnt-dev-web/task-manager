@@ -47,7 +47,7 @@ export function AdminUsersPage() {
     <div className="mx-auto w-full max-w-5xl space-y-6 pb-10">
       <PageHeader
         title="Quản lý nhân viên"
-        description="Chỉ những Gmail có trong danh sách này mới đăng nhập được. Khi nhân viên nghỉ việc, hãy khóa tài khoản."
+        description="Thêm nhân viên bằng email, cấp quyền Quản trị viên. Khi nhân viên nghỉ việc, hãy khóa tài khoản."
       />
 
       <section className="bg-card mx-4 space-y-3 rounded-lg border p-4 md:mx-6" aria-label="Thêm nhân viên">

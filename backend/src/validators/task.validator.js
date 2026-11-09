@@ -33,6 +33,10 @@ module.exports = {
       priorities: csv(z.enum(PRIORITIES)).optional(),
       type: z.enum(TYPES).optional(),
       labelId: uuid.optional(),
+      // Nhiều nhãn: việc có ÍT NHẤT MỘT nhãn trong danh sách
+      labelIds: csv(uuid).optional(),
+      // Lọc nhanh theo hạn: quá hạn / sắp đến hạn (≤ 3 ngày) / không có hạn
+      due: z.enum(['overdue', 'soon', 'none']).optional(),
       dueFrom: date.optional(),
       dueTo: date.optional(),
       sort: z.enum(['createdAt', 'updatedAt', 'dueDate', 'priority', 'number', 'title']).default('createdAt'),
@@ -54,6 +58,13 @@ module.exports = {
     }),
   },
   byKey: { params: keyParams },
+  /** SRC-03: tìm nhanh toàn hệ thống theo mã hoặc tiêu đề. */
+  quickSearch: {
+    query: z.object({
+      q: z.string().trim().min(1, 'Nhập từ khóa').max(100),
+      limit: z.coerce.number().int().min(1).max(20).default(8),
+    }),
+  },
   update: {
     params: keyParams,
     body: atLeastOne(

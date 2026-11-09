@@ -146,7 +146,7 @@ export function BoardPage() {
           />
         )}
         {view === 'backlog' && <BacklogView projectId={projectId} canEdit={canEdit} canMove={canEdit ? canMove : () => false} canManage={canManage} onOpenTask={openTask} />}
-        {view === 'list' && <ListView projectId={projectId} columns={board.columns} onOpen={openTask} />}
+        {view === 'list' && <ListView projectId={projectId} columns={board.columns} members={members} onOpen={openTask} />}
         {view === 'calendar' && <CalendarView projectId={projectId} canEdit={canEdit} canMove={canEdit ? canMove : () => false} onOpenTask={openTask} />}
         {view === 'overview' && <OverviewView projectId={projectId} />}
         {view === 'files' && (

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { CreateTaskDialog } from './CreateTaskDialog';
+import { GlobalSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 
 const isTyping = (target: EventTarget | null) =>
@@ -43,6 +44,7 @@ export function AppHeader({ user }: { user: User }) {
         </Button>
       )}
       <div className="ml-auto flex items-center gap-1">
+        <GlobalSearch />
         <NotificationBell />
         <UserMenu user={user} />
       </div>

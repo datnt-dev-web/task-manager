@@ -1,4 +1,6 @@
 const { Router } = require('express');
+const validate = require('../middlewares/validate');
+const taskV = require('../validators/task.validator');
 
 /** Gắn toàn bộ route API v1. Mọi route trừ /auth đều yêu cầu đăng nhập. */
 module.exports = (container) => {
@@ -21,6 +23,7 @@ module.exports = (container) => {
   router.use('/boards', boards);
   router.use('/columns', columns);
   router.get('/my-tasks', container.controllers.task.listMine);
+  router.get('/search/tasks', validate(taskV.quickSearch), container.controllers.task.quickSearch);
   router.use('/tasks', tasks);
   router.use('/comments', comments);
   router.use('/subtasks', subtasks);

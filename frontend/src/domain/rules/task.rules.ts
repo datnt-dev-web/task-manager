@@ -21,6 +21,23 @@ export function isOverdue(task: Pick<Task, 'dueDate' | 'completedAt'>, today = n
   return differenceInCalendarDays(parseISO(task.dueDate), today) < 0;
 }
 
+/** Bộ lọc nhanh theo hạn (BRD-08, SRC-02). "Sắp đến hạn" = hôm nay → 3 ngày tới, chưa xong. */
+export type DueFilter = 'overdue' | 'soon' | 'none';
+export const DUE_SOON_DAYS = 3;
+export const DUE_FILTER_LABELS: Record<DueFilter, string> = {
+  overdue: 'Quá hạn',
+  soon: `Sắp đến hạn (${DUE_SOON_DAYS} ngày)`,
+  none: 'Không có hạn',
+};
+
+export function matchesDue(task: Pick<Task, 'dueDate' | 'completedAt'>, filter: DueFilter, today = new Date()) {
+  if (filter === 'none') return !task.dueDate;
+  if (filter === 'overdue') return isOverdue(task, today);
+  if (!task.dueDate || task.completedAt) return false;
+  const diff = differenceInCalendarDays(parseISO(task.dueDate), today);
+  return diff >= 0 && diff <= DUE_SOON_DAYS;
+}
+
 export type DueGroup = 'overdue' | 'today' | 'thisWeek' | 'later' | 'noDate';
 
 export const DUE_GROUP_LABELS: Record<DueGroup, string> = {
