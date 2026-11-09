@@ -1,4 +1,4 @@
-import type { Label, Project, ProjectMember, ProjectRole, RichDoc } from '@/domain/entities';
+import type { Label, Paginated, Project, ProjectOverview, ProjectMember, ProjectRole, RichDoc } from '@/domain/entities';
 import { http, unwrap } from '../http/client';
 
 export interface CreateProjectInput {
@@ -13,7 +13,13 @@ export type UpdateProjectInput = Partial<Omit<CreateProjectInput, 'key'>> & { ar
 
 export const projectApi = {
   list: (archived = false) => unwrap<Project[]>(http.get('/projects', { params: { archived } })),
+  /** Trang "Dự án": phân trang + tìm kiếm ở backend. */
+  page: async (params: { archived: boolean; q?: string; page: number; pageSize: number }): Promise<Paginated<Project>> => {
+    const { data } = await http.get('/projects', { params: { ...params, q: params.q || undefined } });
+    return { items: data.data, meta: data.meta };
+  },
   get: (projectId: string) => unwrap<Project>(http.get(`/projects/${projectId}`)),
+  overview: (projectId: string) => unwrap<ProjectOverview>(http.get(`/projects/${projectId}/overview`)),
   create: (input: CreateProjectInput) => unwrap<Project>(http.post('/projects', input)),
   update: (projectId: string, input: UpdateProjectInput) => unwrap<Project>(http.patch(`/projects/${projectId}`, input)),
 

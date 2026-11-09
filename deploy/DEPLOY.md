@@ -49,7 +49,7 @@ sudo mkdir -p /opt/task-manager && sudo chown deploy:deploy /opt/task-manager
 git clone <URL repo> /opt/task-manager      # repo riêng; nếu private: thêm deploy key (read-only) trên GitHub
 cd /opt/task-manager
 cp deploy/.env.production.example deploy/.env.production
-nano deploy/.env.production                  # điền POSTGRES_PASSWORD, JWT_ACCESS_SECRET, GOOGLE_CLIENT_ID, INITIAL_ADMIN_EMAIL, SMTP_*
+nano deploy/.env.production                  # điền POSTGRES_PASSWORD, JWT_ACCESS_SECRET, GOOGLE_CLIENT_ID, INITIAL_ADMIN_EMAIL, INITIAL_ADMIN_PASSWORD, SMTP_*
 chmod 600 deploy/.env.production
 chmod +x deploy/*.sh
 ```
@@ -73,7 +73,7 @@ certbot tự gia hạn (systemd timer `certbot.timer`).
 ./deploy/deploy.sh
 ```
 
-Lần đầu API tự chạy migration và tạo Quản trị viên từ `INITIAL_ADMIN_EMAIL`. Mở https://beta.hopphu.vn, đăng nhập Google bằng email đó, vào **Quản lý nhân viên** để thêm Gmail của mọi người.
+Lần đầu API tự chạy migration và tạo Quản trị viên từ `INITIAL_ADMIN_EMAIL`. Nếu đặt thêm `INITIAL_ADMIN_PASSWORD`, mỗi lần khởi động API sẽ giữ tài khoản này là Quản trị viên với đúng mật khẩu đó (đăng nhập bằng email + mật khẩu) — chỉ đặt trong `.env.production` trên máy chủ, không commit. Mở https://beta.hopphu.vn, đăng nhập Google bằng email đó, vào **Quản lý nhân viên** để thêm Gmail của mọi người.
 
 ## 6. Sao lưu
 

@@ -1,4 +1,4 @@
-const { Op, literal } = require('sequelize');
+const { Op, QueryTypes, literal } = require('sequelize');
 const BaseRepository = require('./base.repository');
 const { USER_BRIEF_ATTRIBUTES, LABEL_ATTRIBUTES } = require('./attributes');
 
@@ -202,6 +202,27 @@ class TaskRepository extends BaseRepository {
   }
 
   /** Việc chưa xong có người làm, đến hạn đúng ngày `isoDate`, dự án chưa lưu trữ (nhắc hạn, BR-08). */
+  /**
+   * DSH-02: số liệu tổng quan dự án, gom ngay trong DB (không tải từng công việc).
+   * `today` là ngày theo múi giờ nghiệp vụ (YYYY-MM-DD) để tính quá hạn.
+   */
+  async overviewCounts(projectId, today) {
+    const select = (sql) =>
+      this.model.sequelize.query(sql, { replacements: { projectId, today }, type: QueryTypes.SELECT });
+    const [byColumn, byAssignee] = await Promise.all([
+      select(`SELECT column_id AS "columnId", COUNT(*)::int AS count
+                FROM tasks WHERE project_id = :projectId AND deleted_at IS NULL
+               GROUP BY column_id`),
+      select(`SELECT assignee_id AS "assigneeId",
+                     COUNT(*) FILTER (WHERE completed_at IS NULL)::int AS open,
+                     COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done,
+                     COUNT(*) FILTER (WHERE completed_at IS NULL AND due_date < :today)::int AS overdue
+                FROM tasks WHERE project_id = :projectId AND deleted_at IS NULL
+               GROUP BY assignee_id`),
+    ]);
+    return { byColumn, byAssignee };
+  }
+
   findOpenDueOn(isoDate) {
     return this.model.findAll({
       where: { dueDate: isoDate, completedAt: null, assigneeId: { [Op.ne]: null } },

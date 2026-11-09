@@ -57,7 +57,7 @@ class AttachmentService {
   /** Kiểm tra TẤT CẢ tệp trước khi lưu tệp nào — một tệp sai thì từ chối cả lượt. */
   async upload(user, taskKey, files) {
     if (!files?.length) throw AppError.badRequest('Chưa chọn tệp nào');
-    const { task } = await this.taskService.loadForAccess(user, taskKey, 'member');
+    const { task } = await this.taskService.loadForParticipation(user, taskKey);
 
     const checked = files.map((file) => {
       const fileName = Buffer.from(file.originalname, 'latin1').toString('utf8'); // multer đọc tên theo latin1

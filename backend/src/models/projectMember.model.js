@@ -1,4 +1,5 @@
-const PROJECT_ROLES = ['manager', 'member', 'viewer'];
+// Chỉ 2 vai trò: Admin dự án (manager) và Thành viên (member).
+const PROJECT_ROLES = ['manager', 'member'];
 
 module.exports = (sequelize, DataTypes) => {
   const ProjectMember = sequelize.define(

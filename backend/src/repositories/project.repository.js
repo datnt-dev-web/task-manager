@@ -28,6 +28,25 @@ class ProjectRepository extends BaseRepository {
     });
   }
 
+  /**
+   * Danh sách dự án có phân trang + tìm theo tên / mã. `userId` bỏ trống = toàn bộ (Quản trị viên),
+   * có giá trị = chỉ dự án người đó là thành viên (kèm vai trò).
+   */
+  searchPage({ userId, archived = false, q, limit, offset }) {
+    const where = { archivedAt: archived ? { [Op.ne]: null } : null };
+    if (q) where[Op.or] = [{ name: { [Op.iLike]: `%${q}%` } }, { key: { [Op.iLike]: `%${q}%` } }];
+    return this.model.findAndCountAll({
+      where,
+      include: userId
+        ? [{ model: this.ProjectMember, as: 'members', where: { userId }, attributes: ['role'] }]
+        : [],
+      order: [['name', 'ASC']],
+      limit,
+      offset,
+      distinct: true,
+    });
+  }
+
   /** Khóa dòng dự án trong transaction để tăng bộ đếm mã công việc an toàn. */
   lockById(id, transaction) {
     return this.model.findByPk(id, { transaction, lock: transaction.LOCK.UPDATE });

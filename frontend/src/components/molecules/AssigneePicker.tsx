@@ -18,7 +18,7 @@ interface AssigneePickerProps {
 /** Chọn người làm. Chỉ Quản lý dự án và Thành viên được giao việc (BR-02). */
 export function AssigneePicker({ members, value, onChange, disabled }: AssigneePickerProps) {
   const [open, setOpen] = useState(false);
-  const assignable = members.filter((m) => m.role !== 'viewer' && m.user.status !== 'disabled');
+  const assignable = members.filter((m) => m.user.status !== 'disabled');
 
   const select = (userId: string | null) => {
     setOpen(false);

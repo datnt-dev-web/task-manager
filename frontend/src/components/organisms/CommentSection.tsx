@@ -17,7 +17,7 @@ interface CommentSectionProps {
   onUploadImage?: (file: File) => Promise<string>;
 }
 
-/** CMT-01..03: bình luận rich text; Ctrl+Enter để gửi. Người xem chỉ đọc. */
+/** CMT-01..03: bình luận rich text; Ctrl+Enter để gửi. */
 export function CommentSection({ taskKey, currentUser, canComment, canModerate, mentionables, onUploadImage }: CommentSectionProps) {
   const { data: comments, isLoading } = useComments(taskKey);
   const { add, update, remove } = useCommentMutations(taskKey);

@@ -10,6 +10,22 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Cỡ chữ toàn trang tăng 1 bậc so với mặc định Tailwind (xs 12→14, sm 14→16, base 16→18…). */
+@theme {
+    --text-xs: 0.875rem;
+    --text-xs--line-height: calc(1.25 / 0.875);
+    --text-sm: 1rem;
+    --text-sm--line-height: calc(1.5 / 1);
+    --text-base: 1.125rem;
+    --text-base--line-height: calc(1.75 / 1.125);
+    --text-lg: 1.25rem;
+    --text-lg--line-height: calc(1.75 / 1.25);
+    --text-xl: 1.5rem;
+    --text-xl--line-height: calc(2 / 1.5);
+    --text-2xl: 1.875rem;
+    --text-2xl--line-height: calc(2.25 / 1.875);
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Be Vietnam Pro', system-ui, sans-serif;
@@ -182,4 +198,56 @@
   padding: 0 0.2em;
   font-weight: 500;
   white-space: nowrap;
+}
+
+/*
+ * Kanban: thẻ vừa được thả sang cột mới → một vệt sáng chạy dọc viền từ trên xuống rồi tắt dần.
+ * Vẽ bằng ::after phủ lên thẻ, mask chỉ giữ lại phần viền 1.5px.
+ */
+:root {
+    --card-landed-glow: oklch(0.62 0.19 259);
+}
+.dark {
+    --card-landed-glow: oklch(1 0 0 / 0.95);
+}
+
+@keyframes card-landed-sweep {
+    0% {
+        background-position: 0 -150%;
+        opacity: 1;
+    }
+    75% {
+        opacity: 1;
+    }
+    100% {
+        background-position: 0 250%;
+        opacity: 0;
+    }
+}
+
+.card-landed {
+    position: relative;
+}
+.card-landed::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--card-landed-glow) 50%, transparent) no-repeat;
+    background-size: 100% 60%;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: card-landed-sweep 1100ms cubic-bezier(0.33, 0, 0.2, 1) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card-landed::after {
+        animation: none;
+        opacity: 0;
+    }
 }

@@ -13,7 +13,7 @@ export const http = axios.create({
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
-const SKIP_REFRESH = ['/auth/refresh', '/auth/google', '/auth/dev-login', '/auth/logout'];
+const SKIP_REFRESH = ['/auth/refresh', '/auth/google', '/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password', '/auth/dev-login', '/auth/logout'];
 let refreshing: Promise<void> | null = null;
 let onSessionExpired: (() => void) | null = null;
 

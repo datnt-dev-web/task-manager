@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Archive, ArchiveRestore, CalendarDays, Columns3, List, ListTodo, Paperclip, Tags, Users } from 'lucide-react';
+import { Archive, ArchiveRestore, CalendarDays, ChartNoAxesColumn, Columns3, List, ListTodo, Paperclip, Tags, Users } from 'lucide-react';
 import { useParams, useSearchParams } from 'react-router';
 import type { Task } from '@/domain/entities';
 import { canEditTasks, canManageProject, canMoveTask } from '@/domain/rules/permissions';
@@ -8,7 +8,6 @@ import { useBoard, useRenameBoard } from '@/application/board/useBoard';
 import { useMembers, useUpdateProject } from '@/application/projects/useProjects';
 import { getErrorStatus } from '@/infrastructure/http/apiError';
 import { PageSpinner } from '@/components/atoms/Spinner';
-import { ReadOnlyBadge } from '@/components/atoms/ReadOnlyBadge';
 import { EmptyState } from '@/components/molecules/EmptyState';
 import { InlineEditText } from '@/components/molecules/InlineEditText';
 import { LabelManagerDialog } from '@/components/organisms/LabelManagerDialog';
@@ -21,6 +20,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 // Backlog và Lịch chỉ tải khi mở tab.
 const BacklogView = lazy(() => import('@/components/organisms/backlog/BacklogView').then((m) => ({ default: m.BacklogView })));
 const CalendarView = lazy(() => import('@/components/organisms/calendar/CalendarView').then((m) => ({ default: m.CalendarView })));
+const OverviewView = lazy(() => import('@/components/organisms/views/OverviewView').then((m) => ({ default: m.OverviewView })));
 const FileLibrary = lazy(() => import('@/components/organisms/files/FileLibrary').then((m) => ({ default: m.FileLibrary })));
 
 const VIEWS = [
@@ -29,6 +29,7 @@ const VIEWS = [
   { value: 'list', label: 'Danh sách', icon: List },
   { value: 'calendar', label: 'Lịch', icon: CalendarDays },
   { value: 'files', label: 'Tệp', icon: Paperclip },
+  { value: 'overview', label: 'Tổng quan', icon: ChartNoAxesColumn },
 ] as const;
 type View = (typeof VIEWS)[number]['value'];
 
@@ -92,7 +93,6 @@ export function BoardPage() {
               onSave={(name) => renameBoard.mutate({ boardId: board.id, name })}
             />
           </h1>
-          {!canEditTasks(role) && <ReadOnlyBadge />}
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {canManage && (
               <LabelManagerDialog
@@ -145,9 +145,10 @@ export function BoardPage() {
             onGoToBacklog={() => setView('backlog')}
           />
         )}
-        {view === 'backlog' && <BacklogView projectId={projectId} canEdit={canEdit} canMove={canMove} canManage={canManage} onOpenTask={openTask} />}
+        {view === 'backlog' && <BacklogView projectId={projectId} canEdit={canEdit} canMove={canEdit ? canMove : () => false} canManage={canManage} onOpenTask={openTask} />}
         {view === 'list' && <ListView projectId={projectId} columns={board.columns} onOpen={openTask} />}
-        {view === 'calendar' && <CalendarView projectId={projectId} canEdit={canEdit} canMove={canMove} onOpenTask={openTask} />}
+        {view === 'calendar' && <CalendarView projectId={projectId} canEdit={canEdit} canMove={canEdit ? canMove : () => false} onOpenTask={openTask} />}
+        {view === 'overview' && <OverviewView projectId={projectId} />}
         {view === 'files' && (
           <div className="px-4 pb-8 md:px-6">
             <FileLibrary projectId={projectId} />

@@ -1,5 +1,7 @@
 const AppError = require('../utils/AppError');
 
+// Vai trò thật chỉ có member / manager. 'viewer' chỉ dùng làm mức tối thiểu "được xem"
+// (mọi thành viên) khi gọi assert(); dữ liệu cũ đã được migration chuyển thành member.
 const ROLE_RANK = { viewer: 1, member: 2, manager: 3 };
 
 /**
@@ -28,11 +30,7 @@ class ProjectAccessService {
     if (!role) throw AppError.notFound('Không tìm thấy dự án');
 
     if (ROLE_RANK[role] < ROLE_RANK[minRole]) {
-      throw AppError.forbidden(
-        role === 'viewer'
-          ? 'Bạn đang ở chế độ Chỉ xem trong dự án này'
-          : 'Chỉ Quản lý dự án được thực hiện thao tác này',
-      );
+      throw AppError.forbidden('Chỉ Admin dự án được thực hiện thao tác này');
     }
     if (project.archivedAt && minRole !== 'viewer' && !allowArchived) {
       throw AppError.forbidden('Dự án đã được lưu trữ, chỉ có thể xem');

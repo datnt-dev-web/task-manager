@@ -29,7 +29,7 @@ class TaskController {
 
   /** Middleware: chặn Người xem / người ngoài trước khi multer đọc tệp. */
   assertCanUpload = async (req, _res, next) => {
-    await this.taskService.loadForAccess(req.user, req.valid.params.key, 'member');
+    await this.taskService.loadForParticipation(req.user, req.valid.params.key);
     next();
   };
 

@@ -24,7 +24,7 @@ class SubtaskService {
   }
 
   async create(user, taskKey, { title, assigneeId, dueDate }) {
-    const { task } = await this.taskService.loadForAccess(user, taskKey, 'member');
+    const { task } = await this.taskService.loadForAccess(user, taskKey, 'manager');
     if ((await this.subtaskRepository.countByTask(task.id)) >= MAX_SUBTASKS) {
       throw AppError.badRequest(`Mỗi công việc có tối đa ${MAX_SUBTASKS} việc con`);
     }
@@ -67,7 +67,7 @@ class SubtaskService {
     if (!subtask) throw AppError.notFound('Không tìm thấy việc con');
     const task = await this.taskRepository.findById(subtask.taskId);
     if (!task) throw AppError.notFound('Không tìm thấy công việc');
-    await this.access.assert(user, task.projectId, 'member');
+    await this.access.assert(user, task.projectId, 'manager');
     return { subtask, task };
   }
 

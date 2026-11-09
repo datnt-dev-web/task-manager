@@ -1,7 +1,7 @@
 const { z, uuid, text, hexColor, richDoc, params, atLeastOne } = require('./common');
 
 const projectParams = params({ projectId: uuid });
-const role = z.enum(['manager', 'member', 'viewer'], { error: 'Vai trò không hợp lệ' });
+const role = z.enum(['manager', 'member'], { error: 'Vai trò không hợp lệ' });
 
 const editable = {
   name: text('Tên dự án', 1, 120),
@@ -11,7 +11,14 @@ const editable = {
 };
 
 module.exports = {
-  list: { query: z.object({ archived: z.stringbool().default(false) }) },
+  list: {
+    query: z.object({
+      archived: z.stringbool().default(false),
+      q: z.string().trim().max(100).optional(),
+      page: z.coerce.number().int().min(1).optional(),
+      pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    }),
+  },
   byId: { params: projectParams },
   create: {
     body: z.object({

@@ -74,7 +74,6 @@ export function BoardView({ board, members, currentUserId, canEdit, canMove, can
         </div>
         <div className="flex -space-x-1.5" role="group" aria-label="Lọc theo người làm">
           {members
-            .filter((m) => m.role !== 'viewer')
             .slice(0, 8)
             .map((m) => (
               <button

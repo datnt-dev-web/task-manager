@@ -11,6 +11,11 @@ const schema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   GOOGLE_CLIENT_ID: z.string().default(''),
+  // Tài khoản Quản trị viên cố định (tiện test). Đặt cả hai thì mỗi lần khởi động API sẽ đảm bảo
+  // tài khoản này tồn tại, là Quản trị viên, đang hoạt động và có đúng mật khẩu này.
+  // KHÔNG ghi giá trị thật vào git — chỉ đặt trong .env trên máy chủ.
+  INITIAL_ADMIN_EMAIL: z.string().trim().toLowerCase().default(''),
+  INITIAL_ADMIN_PASSWORD: z.string().default(''),
   ALLOW_DEV_LOGIN: z.stringbool().default(false),
   COOKIE_SECURE: z.stringbool().optional(),
   // Đường dẫn gốc của ứng dụng web, dùng cho link trong email

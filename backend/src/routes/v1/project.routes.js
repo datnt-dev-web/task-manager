@@ -17,6 +17,7 @@ module.exports = ({ controllers }) => {
   router.patch('/:projectId', validate(projectV.update), project.update);
   router.delete('/:projectId', validate(projectV.byId), project.remove);
 
+  router.get('/:projectId/overview', validate(projectV.byId), project.overview);
   router.get('/:projectId/members', validate(projectV.byId), project.listMembers);
   router.post('/:projectId/members', validate(projectV.addMember), project.addMember);
   router.patch('/:projectId/members/:userId', validate(projectV.updateMember), project.updateMember);

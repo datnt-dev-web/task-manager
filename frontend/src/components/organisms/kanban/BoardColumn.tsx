@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ONLY_MANAGER_COMPLETES_HINT } from '@/domain/rules/permissions';
 import { cn } from '@/lib/utils';
 import { DeleteColumnDialog } from './DeleteColumnDialog';
 import { QuickAddTask } from './QuickAddTask';
@@ -32,6 +33,10 @@ interface BoardColumnProps {
   canMove: (task: Task) => boolean;
   canManage: boolean;
   onOpenTask: (task: Task) => void;
+  /** Đang kéo một thẻ (từ cột khác) vào cột này. */
+  dropTarget?: boolean;
+  /** Id thẻ vừa được thả vào cột này (chạy hiệu ứng). */
+  landedTaskId?: string | null;
 }
 
 export const BoardColumn = memo(function BoardColumn({
@@ -44,10 +49,14 @@ export const BoardColumn = memo(function BoardColumn({
   canMove,
   canManage,
   onOpenTask,
+  dropTarget = false,
+  landedTaskId = null,
 }: BoardColumnProps) {
   const sortable = useSortable({ id: columnSortId(column.id), data: { type: 'column', column }, disabled: !canManage });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.id, data: { type: 'column-drop', columnId: column.id } });
   const updateColumn = useUpdateColumn(projectId);
+  // Cột Hoàn thành: chỉ Quản trị viên / Quản lý dự án được duyệt (kéo vào) hoặc mở lại (kéo ra).
+  const locked = column.isDone && !canManage;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   return (
@@ -56,7 +65,9 @@ export const BoardColumn = memo(function BoardColumn({
       style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
       aria-label={`Cột ${column.name}`}
       className={cn(
-        'bg-muted/60 dark:bg-muted/30 flex max-h-full w-72 shrink-0 flex-col rounded-lg',
+        'bg-muted/60 dark:bg-muted/30 flex max-h-full w-72 shrink-0 flex-col rounded-lg outline-2 -outline-offset-2 outline-transparent',
+        'transition-[outline-color,background-color] duration-200 ease-out',
+        dropTarget && 'bg-primary/5 dark:bg-primary/10 outline-primary',
         sortable.isDragging && 'opacity-40',
       )}
     >
@@ -75,7 +86,12 @@ export const BoardColumn = memo(function BoardColumn({
         ) : (
           <span className="w-1" />
         )}
-        {column.isDone && <CircleCheck className="size-4 shrink-0 text-green-600 dark:text-green-400" aria-label="Cột Hoàn thành" />}
+        {column.isDone && (
+          <CircleCheck
+            className="size-4 shrink-0 text-green-600 dark:text-green-400"
+            aria-label="Cột Hoàn thành"
+          />
+        )}
         <InlineEditText
           value={column.name}
           maxLength={30}
@@ -111,14 +127,22 @@ export const BoardColumn = memo(function BoardColumn({
 
       <div
         ref={setDropRef}
-        className={cn('flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2', isOver && 'bg-accent/50 rounded-md')}
+        className={cn('flex min-h-16 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2', isOver && !dropTarget && 'bg-accent/50 rounded-md')}
       >
         <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
-            <SortableTaskCard key={task.id} task={task} onOpen={onOpenTask} disabled={!canMove(task)} lockedHint={canEdit} />
+            <SortableTaskCard
+              key={task.id}
+              task={task}
+              onOpen={onOpenTask}
+              disabled={locked || !canMove(task)}
+              lockedHint={canEdit}
+              hint={locked ? ONLY_MANAGER_COMPLETES_HINT : undefined}
+              landed={task.id === landedTaskId}
+            />
           ))}
         </SortableContext>
-        {canEdit && <QuickAddTask projectId={projectId} columnId={column.id} sprintId={sprintId} />}
+        {canEdit && !locked && <QuickAddTask projectId={projectId} columnId={column.id} sprintId={sprintId} />}
       </div>
 
       {confirmDelete && (

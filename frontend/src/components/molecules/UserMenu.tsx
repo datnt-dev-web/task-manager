@@ -1,5 +1,5 @@
 import { LogOut, Settings, ShieldCheck } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import type { User } from '@/domain/entities';
 import { displayName } from '@/domain/rules/user.rules';
 import { useSignOut } from '@/application/auth/useSession';
@@ -17,6 +17,7 @@ import {
 /** Menu ảnh đại diện góc phải trên: thông tin, đổi giao diện nhanh (THM-01), đăng xuất. */
 export function UserMenu({ user }: { user: User }) {
   const signOut = useSignOut();
+  const navigate = useNavigate();
 
   return (
     <DropdownMenu>
@@ -49,7 +50,7 @@ export function UserMenu({ user }: { user: User }) {
             </Link>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem onSelect={() => signOut.mutate()}>
+        <DropdownMenuItem onSelect={() => signOut.mutate(undefined, { onSettled: () => navigate('/login', { replace: true }) })}>
           <LogOut /> Đăng xuất
         </DropdownMenuItem>
       </DropdownMenuContent>

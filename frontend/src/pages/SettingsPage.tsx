@@ -13,17 +13,19 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PasswordSection } from '@/components/organisms/PasswordSection';
 
 function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: UpdateProfileInput) => userApi.updateMe(input),
-    onSuccess: (user) => queryClient.setQueryData<User | null>(queryKeys.session, user),
+    // PATCH /users/me không trả hasPassword → gộp với phiên hiện tại để không mất thông tin.
+    onSuccess: (user) => queryClient.setQueryData<User | null>(queryKeys.session, (old) => ({ ...old, ...user })),
     onError: (error) => notify.error(error),
   });
 }
 
-/** AUTH-05, THM-01, NTF-03: hồ sơ, giao diện, email thông báo. */
+/** AUTH-05, THM-01, NTF-03: hồ sơ, mật khẩu, giao diện, email thông báo. */
 export function SettingsPage() {
   const user = useCurrentUser();
   const update = useUpdateProfile();
@@ -71,6 +73,8 @@ export function SettingsPage() {
           </div>
         </form>
       </section>
+
+      <PasswordSection hasPassword={!!user.hasPassword} />
 
       <section className="bg-card mx-4 space-y-3 rounded-lg border p-4 md:mx-6" aria-labelledby="theme-heading">
         <h2 id="theme-heading" className="text-sm font-semibold">

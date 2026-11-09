@@ -4,6 +4,7 @@ export const queryKeys = {
   projects: (archived = false) => ['projects', { archived }] as const,
   projectsAll: ['projects'] as const,
   project: (projectId: string) => ['project', projectId] as const,
+  overview: (projectId: string) => ['project', projectId, 'overview'] as const,
   members: (projectId: string) => ['project', projectId, 'members'] as const,
   labels: (projectId: string) => ['project', projectId, 'labels'] as const,
   board: (projectId: string) => ['board', projectId] as const,
