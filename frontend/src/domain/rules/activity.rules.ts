@@ -36,6 +36,8 @@ export function describeActivity(a: ActivityLog): ActivityDescription {
       return { summary: 'đã tạo công việc' };
     case 'deleted':
       return { summary: 'đã xóa công việc' };
+    case 'returned':
+      return { summary: 'đã trả lại công việc', change: { from: a.oldValue ?? '', to: a.newValue ?? '' } };
     case 'subtask_added':
       return { summary: `đã thêm việc con “${a.newValue}”` };
     case 'subtask_completed':

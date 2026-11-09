@@ -90,7 +90,7 @@ export function TaskTable({
           <tbody className={cn('divide-y', loading && 'opacity-60')}>
             {tasks.map((task) => (
               <tr key={task.id} className="hover:bg-muted/40 cursor-pointer" onClick={() => onOpen(task)}>
-                <td className="px-3 py-2">
+                <td className="px-3 py-2 whitespace-nowrap">
                   <span className="flex items-center gap-1.5">
                     <TaskTypeIcon type={task.type} />
                     <TaskKey value={task.key} done={!!task.completedAt} />

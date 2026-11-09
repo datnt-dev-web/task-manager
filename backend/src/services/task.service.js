@@ -26,6 +26,7 @@ class TaskService {
     labelRepository,
     userRepository,
     taskWatcherRepository,
+    commentRepository,
     sprintRepository,
     notificationService,
     activityService,
@@ -42,6 +43,7 @@ class TaskService {
     this.labelRepository = labelRepository;
     this.userRepository = userRepository;
     this.watchers = taskWatcherRepository;
+    this.commentRepository = commentRepository;
     this.sprintRepository = sprintRepository;
     this.notifications = notificationService;
     this.activity = activityService;
@@ -208,6 +210,57 @@ class TaskService {
     if (columnChanged) {
       await this.activity.record(user, saved, [{ action: 'updated', field: 'status', from: fromColumnName, to: column.name }]);
       await this.#notifyStatusChanged(user, saved, fromColumnName, column.name);
+    }
+    return saved;
+  }
+
+  /**
+   * Quy trình duyệt: Admin trả lại công việc kèm lý do. Chuyển việc về cột đích (mặc định cột liền trước,
+   * ví dụ Chờ duyệt → Đang làm), tự tạo bình luận chứa lý do, ghi lịch sử, báo cho người làm.
+   */
+  async returnTask(user, key, { reason, columnId }) {
+    const { task } = await this.#load(user, key, 'manager');
+    const board = await this.boardRepository.findByProjectId(task.projectId);
+    const columns = await this.boardColumnRepository.listByBoard(board.id);
+    const index = columns.findIndex((c) => c.id === task.columnId);
+    const target = columnId ? columns.find((c) => c.id === columnId) : columns[index - 1];
+    if (!target) throw AppError.badRequest(columnId ? 'Cột không thuộc bảng của dự án' : 'Công việc đang ở cột đầu tiên, không thể trả lại');
+    if (target.id === task.columnId) throw AppError.badRequest('Hãy chọn cột khác với cột hiện tại');
+    if (target.isDone) throw AppError.badRequest('Không thể trả lại vào cột Hoàn thành');
+
+    const fromName = task.column?.name;
+    const body = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: `↩ Trả lại về “${target.name}”: `, marks: [{ type: 'bold' }] },
+            { type: 'text', text: reason },
+          ],
+        },
+      ],
+    };
+    await this.unitOfWork.run(async (transaction) => {
+      const position = positionBetween(await this.taskRepository.maxPosition(target.id, { transaction }), null);
+      await task.update({ columnId: target.id, position, completedAt: null }, { transaction });
+      await this.commentRepository.create(
+        { taskId: task.id, authorId: user.id, body: sanitizeDoc(body), bodyText: toPlainText(body) },
+        { transaction },
+      );
+      await this.watchers.addMany(task.id, [user.id], { transaction });
+    });
+
+    const saved = await this.taskRepository.findByKey(key);
+    await this.activity.record(user, saved, [{ action: 'returned', from: fromName, to: target.name }]);
+    if (saved.assigneeId && saved.assigneeId !== user.id) {
+      await this.notifications.notify({
+        type: 'task_returned',
+        recipientIds: [saved.assigneeId],
+        actor: user,
+        task: saved,
+        data: { from: fromName, to: target.name, reason: reason.slice(0, 200) },
+      });
     }
     return saved;
   }

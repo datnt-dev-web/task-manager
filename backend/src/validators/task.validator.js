@@ -58,6 +58,14 @@ module.exports = {
     }),
   },
   byKey: { params: keyParams },
+  /** Admin trả lại công việc kèm lý do (bắt buộc); cột đích mặc định là cột liền trước. */
+  returnTask: {
+    params: keyParams,
+    body: z.object({
+      reason: z.string().trim().min(3, 'Lý do trả lại tối thiểu 3 ký tự').max(1000, 'Lý do tối đa 1000 ký tự'),
+      columnId: uuid.optional(),
+    }),
+  },
   /** SRC-03: tìm nhanh toàn hệ thống theo mã hoặc tiêu đề. */
   quickSearch: {
     query: z.object({

@@ -17,6 +17,7 @@ import { useLabels, useMembers } from '@/application/projects/useProjects';
 import { LabelPicker } from '@/components/molecules/LabelPicker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ActivityList } from './ActivityList';
+import { ReturnTaskDialog } from './ReturnTaskDialog';
 import { useDeleteTask, useTask, useUpdateTask } from '@/application/tasks/useTasks';
 import { useAttachmentMutations, useWatchTask } from '@/application/tasks/useTaskExtras';
 import { inlineUrl } from '@/infrastructure/api/attachment.api';
@@ -209,6 +210,9 @@ function TaskDetail({
           canSelect={(column) => canChangeColumn(role, task.column ?? null, column)}
           onChange={(columnId) => update.mutate({ columnId })}
         />
+        {canEdit && boardView?.board && (
+          <ReturnTaskDialog task={task} columns={[...boardView.board.columns].sort((a, b) => a.position - b.position)} />
+        )}
         <Field label="Người làm">
           <AssigneePicker
             members={members}

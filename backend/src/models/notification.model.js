@@ -6,6 +6,7 @@ const NOTIFICATION_TYPES = [
   'added_to_project',
   'due_soon',
   'overdue',
+  'task_returned',
 ];
 
 module.exports = (sequelize, DataTypes) => {

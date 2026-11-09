@@ -22,11 +22,18 @@ export function notificationText(n: AppNotification): string {
       return `${key} sẽ đến hạn vào ngày mai`;
     case 'overdue':
       return `${key} đã quá hạn`;
+    case 'task_returned':
+      return `${actor} đã trả lại ${key} về “${n.data.to ?? ''}”`;
   }
 }
 
 /** Dòng phụ: trích bình luận hoặc tiêu đề công việc. */
-export const notificationDetail = (n: AppNotification) => n.data.excerpt ?? n.task?.title ?? n.data.taskTitle ?? '';
+export const notificationDetail = (n: AppNotification) =>
+  (n.type === 'task_returned' && n.data.reason ? `Lý do: ${n.data.reason}` : null) ??
+  n.data.excerpt ??
+  n.task?.title ??
+  n.data.taskTitle ??
+  '';
 
 /** Đường dẫn mở khi bấm vào thông báo. */
 export function notificationLink(n: AppNotification): string {
@@ -37,7 +44,7 @@ export function notificationLink(n: AppNotification): string {
 }
 
 export const EMAIL_SETTING_LABELS = {
-  taskAssigned: 'Khi được giao việc',
+  taskAssigned: 'Khi được giao việc hoặc bị trả lại việc',
   mentioned: 'Khi được @nhắc tên',
   dueSoon: 'Nhắc trước 1 ngày khi việc sắp đến hạn',
   overdue: 'Khi việc của tôi quá hạn',

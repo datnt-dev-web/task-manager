@@ -18,6 +18,10 @@ class TaskController {
     res.json({ data: items, meta });
   };
 
+  returnTask = async (req, res) => {
+    res.json({ data: await this.taskService.returnTask(req.user, req.valid.params.key, req.valid.body) });
+  };
+
   quickSearch = async (req, res) => {
     res.json({ data: await this.taskService.quickSearch(req.user, req.valid.query) });
   };

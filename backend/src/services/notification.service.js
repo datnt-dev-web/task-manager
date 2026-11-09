@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 // Loại sự kiện có gửi email + khóa cài đặt tương ứng (NTF-03). Loại khác chỉ báo trong ứng dụng.
 const EMAIL_SETTING_BY_TYPE = {
   task_assigned: 'taskAssigned',
+  task_returned: 'taskAssigned',
   mentioned: 'mentioned',
   due_soon: 'dueSoon',
   overdue: 'overdue',
@@ -114,6 +115,7 @@ class NotificationService {
       mentioned: [`${nameOf(actor)} đã nhắc đến bạn trong ${taskRef}`, 'Xem công việc'],
       due_soon: [`Công việc sắp đến hạn ngày mai: ${taskRef}`, 'Xem công việc'],
       overdue: [`Công việc đã quá hạn: ${taskRef}`, 'Xem công việc'],
+      task_returned: [`${nameOf(actor)} đã trả lại ${taskRef} — lý do: ${data.reason ?? ''}`, 'Xem công việc'],
       added_to_project: [`${nameOf(actor)} đã thêm bạn vào dự án ${data.projectName ?? project?.name ?? ''}`, 'Mở dự án'],
     };
     const [subject, cta] = messages[type];

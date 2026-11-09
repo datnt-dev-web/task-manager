@@ -167,7 +167,8 @@ export type NotificationType =
   | 'status_changed'
   | 'added_to_project'
   | 'due_soon'
-  | 'overdue';
+  | 'overdue'
+  | 'task_returned';
 
 export interface AppNotification {
   id: string;
@@ -178,6 +179,7 @@ export interface AppNotification {
   task: { id: string; key: string; title: string; projectId: string } | null;
   project: { id: string; key: string; name: string } | null;
   data: {
+    reason?: string;
     taskKey?: string;
     taskTitle?: string;
     projectName?: string;
@@ -222,7 +224,8 @@ export type ActivityAction =
   | 'subtask_reopened'
   | 'subtask_removed'
   | 'attachment_added'
-  | 'attachment_removed';
+  | 'attachment_removed'
+  | 'returned';
 
 export interface ActivityLog {
   id: string;

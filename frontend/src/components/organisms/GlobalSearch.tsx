@@ -92,7 +92,7 @@ export function GlobalSearch() {
                     <TaskTypeIcon type={t.type} />
                     <TaskKey value={t.key} done={!!t.completedAt} className="w-16 shrink-0" />
                     <span className="min-w-0 flex-1 truncate">{t.title}</span>
-                    <span className="text-muted-foreground hidden shrink-0 text-xs sm:inline">
+                    <span className="text-muted-foreground hidden max-w-[45%] shrink truncate text-xs sm:inline">
                       {t.project.name}
                       {t.column && ` · ${t.column.name}`}
                       {t.assignee && ` · ${displayName(t.assignee)}`}

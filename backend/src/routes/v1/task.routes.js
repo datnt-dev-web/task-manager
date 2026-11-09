@@ -23,6 +23,7 @@ module.exports = ({ controllers, services }) => {
   tasks.get('/:key', validate(taskV.byKey), task.get);
   tasks.patch('/:key', validate(taskV.update), task.update);
   tasks.post('/:key/move', validate(taskV.move), task.move);
+  tasks.post('/:key/return', validate(taskV.returnTask), task.returnTask);
   tasks.post('/:key/plan', validate(taskV.plan), sprint.plan);
   tasks.get('/:key/activity', validate(taskV.byKey), task.activity);
   tasks.delete('/:key', validate(taskV.byKey), task.remove);

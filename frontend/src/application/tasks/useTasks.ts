@@ -50,6 +50,26 @@ export function useUpdateTask(task: Pick<Task, 'key' | 'projectId'>) {
   });
 }
 
+/** Quy trình duyệt: Admin trả lại công việc kèm lý do → cập nhật bảng, bình luận, lịch sử. */
+export function useReturnTask(task: Pick<Task, 'key' | 'projectId'>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { reason: string; columnId?: string }) => taskApi.returnTask(task.key, input),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.task(saved.key), (old: { task: Task } | undefined) =>
+        old ? { ...old, task: { ...old.task, ...saved } } : old,
+      );
+      patchBoard(queryClient, task.projectId, (v) => ({ ...v, board: { ...v.board, tasks: upsertTask(v.board.tasks, saved) } }));
+      queryClient.invalidateQueries({ queryKey: queryKeys.comments(saved.key) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activity(saved.key) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.taskListsOf(task.projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.myTasks });
+      notify.success(`Đã trả lại ${saved.key} về “${saved.column?.name ?? ''}”`);
+    },
+    onError: (error) => notify.error(error),
+  });
+}
+
 /**
  * TSK-11 / UX-06: ẩn công việc ngay, chờ 5 giây cho người dùng bấm Hoàn tác rồi mới gọi API xóa.
  */

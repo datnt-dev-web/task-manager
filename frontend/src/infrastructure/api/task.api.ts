@@ -53,6 +53,9 @@ export const taskApi = {
     return { items: data.data, meta: data.meta };
   },
   mine: () => unwrap<Task[]>(http.get('/my-tasks')),
+  /** Admin trả lại công việc kèm lý do. */
+  returnTask: (key: string, input: { reason: string; columnId?: string }) =>
+    unwrap<Task>(http.post(`/tasks/${key}/return`, input)),
   /** SRC-03: tìm nhanh toàn hệ thống. */
   quickSearch: (q: string, limit = 8) => unwrap<QuickSearchResult[]>(http.get('/search/tasks', { params: { q, limit } })),
   calendar: async (projectId: string, from: string, to: string): Promise<{ tasks: Task[]; withoutDueDate: number }> => {

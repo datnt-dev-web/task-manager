@@ -432,6 +432,26 @@ check('archived project is read-only -> 403', r.status === 403, r);
 r = await admin('PATCH', `/projects/${projectId}`, { archived: false });
 check('restore archived project', r.status === 200 && r.body.data.archivedAt === null, r);
 
+// ---------- Trả lại công việc kèm lý do ----------
+{
+  const { body: rb } = await admin('POST', `/projects/${projectId}/tasks`, { title: 'Việc chờ duyệt', assigneeId: adminId, columnId: review.id });
+  const rk = rb.data.key;
+  const ordered = (await admin('GET', `/projects/${projectId}/board`)).body.data.columns.sort((a, b) => a.position - b.position);
+  const prev = ordered[ordered.findIndex((c) => c.id === review.id) - 1];
+  r = await admin('POST', `/tasks/${rk}/return`, { reason: 'x' });
+  check('return requires a reason -> 400', r.status === 400, r);
+  r = await admin('POST', `/tasks/${rk}/return`, { reason: 'Thiếu số liệu quý 3' });
+  check('return moves task to previous column', r.status === 200 && r.body.data.columnId === prev.id && r.body.data.completedAt === null, r);
+  r = await admin('GET', `/tasks/${rk}/comments`);
+  check('return adds reason as comment', JSON.stringify(r.body.data).includes('Thiếu số liệu quý 3'), r.body.data);
+  r = await admin('GET', `/tasks/${rk}/activity`);
+  check('return is logged in history', r.body.data.some((a) => a.action === 'returned' && a.oldValue === review.name && a.newValue === prev.name), r.body.data.slice(0, 2));
+  r = await admin('POST', `/tasks/${rk}/return`, { reason: 'Trả vào cột xong', columnId: done.id });
+  check('cannot return into Done column -> 400', r.status === 400, r);
+  r = await outsider('POST', `/tasks/${rk}/return`, { reason: 'Không có quyền' });
+  check('outsider cannot return -> 404', r.status === 404, r);
+}
+
 // ---------- Tổng quan dự án (DSH-02) ----------
 await admin('POST', `/projects/${projectId}/tasks`, { title: 'Việc trễ hạn', assigneeId: adminId, dueDate: '2020-01-01' });
 r = await admin('GET', `/projects/${projectId}/overview`);
