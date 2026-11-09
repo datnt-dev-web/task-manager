@@ -27,6 +27,12 @@ export interface TaskDetailView {
   watching: boolean;
 }
 
+export interface QuickSearchResult
+  extends Pick<Task, 'id' | 'key' | 'title' | 'type' | 'priority' | 'dueDate' | 'completedAt' | 'projectId' | 'columnId' | 'assignee'> {
+  project: { id: string; key: string; name: string; color: string | null };
+  column: { id: string; name: string; isDone: boolean } | null;
+}
+
 export interface TaskListQuery {
   page?: number;
   pageSize?: number;
@@ -34,6 +40,9 @@ export interface TaskListQuery {
   assignee?: 'me' | 'none' | string;
   priorities?: string;
   columnIds?: string;
+  labelIds?: string;
+  type?: 'task' | 'bug';
+  due?: 'overdue' | 'soon' | 'none';
   sort?: string;
   order?: 'asc' | 'desc';
 }
@@ -44,6 +53,8 @@ export const taskApi = {
     return { items: data.data, meta: data.meta };
   },
   mine: () => unwrap<Task[]>(http.get('/my-tasks')),
+  /** SRC-03: tìm nhanh toàn hệ thống. */
+  quickSearch: (q: string, limit = 8) => unwrap<QuickSearchResult[]>(http.get('/search/tasks', { params: { q, limit } })),
   calendar: async (projectId: string, from: string, to: string): Promise<{ tasks: Task[]; withoutDueDate: number }> => {
     const { data } = await http.get(`/projects/${projectId}/calendar`, { params: { from, to } });
     return { tasks: data.data, withoutDueDate: data.meta.withoutDueDate };

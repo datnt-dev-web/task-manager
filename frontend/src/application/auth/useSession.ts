@@ -34,6 +34,34 @@ export function useGoogleSignIn() {
   return useMutation({ mutationFn: authApi.loginWithGoogle, onSuccess: onSignedIn });
 }
 
+export function usePasswordSignIn() {
+  const onSignedIn = useOnSignedIn();
+  return useMutation({ mutationFn: authApi.login, onSuccess: onSignedIn });
+}
+
+export function useRegister() {
+  const onSignedIn = useOnSignedIn();
+  return useMutation({ mutationFn: authApi.register, onSuccess: onSignedIn });
+}
+
+export function useForgotPassword() {
+  return useMutation({ mutationFn: authApi.forgotPassword });
+}
+
+/** Đặt lại mật khẩu bằng liên kết trong email → đăng nhập luôn. */
+export function useResetPassword() {
+  const onSignedIn = useOnSignedIn();
+  return useMutation({ mutationFn: authApi.resetPassword, onSuccess: onSignedIn });
+}
+
+export function useChangePassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.changePassword,
+    onSuccess: (user) => queryClient.setQueryData(queryKeys.session, user),
+  });
+}
+
 export function useDevSignIn() {
   const onSignedIn = useOnSignedIn();
   return useMutation({ mutationFn: authApi.devLogin, onSuccess: onSignedIn });
@@ -44,8 +72,9 @@ export function useSignOut() {
   return useMutation({
     mutationFn: authApi.logout,
     onSettled: () => {
-      queryClient.clear();
+      // Không dùng clear(): nó xóa luôn truy vấn phiên mà RequireAuth đang theo dõi → giao diện không cập nhật.
       queryClient.setQueryData(queryKeys.session, null);
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== queryKeys.session[0] });
     },
   });
 }

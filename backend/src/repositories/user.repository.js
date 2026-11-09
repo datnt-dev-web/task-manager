@@ -14,9 +14,10 @@ class UserRepository extends BaseRepository {
     return this.findAll({ email: { [Op.in]: emails } }, options);
   }
 
-  search({ q, status, limit, offset }) {
+  search({ q, status, excludeDisabled = false, limit, offset }) {
     const where = {};
     if (status) where.status = status;
+    else if (excludeDisabled) where.status = { [Op.ne]: 'disabled' };
     if (q) {
       where[Op.or] = [{ email: { [Op.iLike]: `%${q}%` } }, { fullName: { [Op.iLike]: `%${q}%` } }];
     }

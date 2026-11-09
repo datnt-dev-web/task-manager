@@ -12,6 +12,7 @@ const sequelize = new Sequelize(dbConfig.url, {
 const definitions = [
   require('./user.model'),
   require('./refreshToken.model'),
+  require('./passwordResetToken.model'),
   require('./project.model'),
   require('./projectMember.model'),
   require('./board.model'),

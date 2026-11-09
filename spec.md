@@ -18,6 +18,7 @@
 | 2.1 | 09/11/2026 | Định hướng lại theo tiêu chí **dễ dùng**: chỉ tham khảo Jira, lược bỏ khái niệm phức tạp (Epic, Story, Sprint, Story point, cấu hình workflow); thuật ngữ tiếng Việt; bổ sung nguyên tắc trải nghiệm người dùng |
 | 2.2 | 09/11/2026 | Chốt Q1: thêm vai trò **Người xem** (chỉ xem, không sửa); chốt Q2: **đăng nhập bằng tài khoản Google** ngay từ MVP; bổ sung thông tin môi trường triển khai `beta.hopphu.vn` |
 | 2.3 | 09/11/2026 | Chốt Q5: nhân viên dùng **Gmail cá nhân** (không giới hạn tên miền); chốt Q6: `beta.hopphu.vn` là **môi trường chính thức** |
+| 2.4 | 09/11/2026 | Cập nhật theo bản đã triển khai: đăng ký / đăng nhập **email + mật khẩu** (Google là đăng nhập nhanh), quên / đổi mật khẩu; rút còn **2 vai trò dự án: Admin và Thành viên** (bỏ Người xem); chỉ Quản trị viên tạo dự án; **quy trình duyệt** (Thành viên chuyển sang Chờ duyệt, Admin đưa vào Hoàn thành); bộ lọc bảng / danh sách mở rộng, tìm kiếm toàn hệ thống |
 
 ---
 
@@ -86,17 +87,16 @@ Hệ thống tham khảo cách Jira tổ chức công việc (dự án → bản
 
 ### 2.3 Vai trò người dùng
 
-Chỉ có **2 lớp, 5 vai trò**, dễ hiểu:
+Chỉ có **2 lớp, 4 vai trò**, dễ hiểu:
 
 | Lớp | Vai trò | Được làm gì |
 | --- | --- | --- |
-| Hệ thống | Quản trị viên | Quản lý tài khoản nhân viên, xem và hỗ trợ mọi dự án |
-| Hệ thống | Người dùng | Tạo dự án mới; quyền trong từng dự án theo vai trò bên dưới |
-| Dự án | Quản lý dự án | Sửa dự án, đổi tên bảng/cột, quản lý thành viên, toàn quyền với công việc |
-| Dự án | Thành viên | Tạo, sửa, kéo thả công việc, bình luận, đính kèm tệp |
-| Dự án | Người xem | **Chỉ xem**: xem bảng, danh sách, chi tiết công việc, bình luận, tệp, tổng quan. **Không** tạo, sửa, kéo thả, bình luận, tải tệp lên, không được giao việc |
+| Hệ thống | Quản trị viên | Quản lý tài khoản nhân viên, **tạo dự án**, xem và có quyền Admin ở mọi dự án |
+| Hệ thống | Người dùng | Vào các dự án mình được thêm; quyền trong từng dự án theo vai trò bên dưới |
+| Dự án | Admin | Toàn quyền trong dự án: sửa dự án, bảng/cột, nhãn, thành viên; tạo / sửa / xóa / giao việc; **duyệt việc vào Hoàn thành** |
+| Dự án | Thành viên | Xem toàn bộ dự án. Với **việc được giao cho mình**: bình luận, đính kèm tệp, chuyển trạng thái (tối đa tới **Chờ duyệt**). Không tạo / sửa / xóa việc |
 
-Người tạo dự án tự động là Quản lý dự án. Với Người xem, giao diện ẩn mọi nút thêm/sửa/xóa, tắt kéo thả và hiển thị nhãn "Chỉ xem" ở đầu bảng để người dùng hiểu vì sao không thao tác được.
+Người tạo dự án tự động là Admin của dự án. Giao diện ẩn các nút mà người dùng không có quyền; API vẫn kiểm tra lại mọi thao tác.
 
 ### 2.4 Luồng sử dụng chính
 
@@ -135,16 +135,18 @@ Mức ưu tiên: **M** – bắt buộc MVP · **S** – nên có nếu kịp ·
 
 | Mã | Yêu cầu | Ưu tiên |
 | --- | --- | --- |
-| AUTH-01 | Trang đăng nhập chỉ có một nút **"Đăng nhập bằng Google"** (Google OAuth 2.0 / OpenID Connect) | M |
-| AUTH-02 | Chỉ email đã được Quản trị viên thêm vào hệ thống mới đăng nhập được; email chưa được cấp quyền thấy thông báo "Tài khoản của bạn chưa được cấp quyền truy cập, vui lòng liên hệ quản trị viên" | M |
+| AUTH-01 | Trang đăng nhập có form **email + mật khẩu** (có nút hiện/ẩn mật khẩu) và nút **"Tiếp tục với Google"** làm cách đăng nhập nhanh | M |
+| AUTH-02 | **Đăng ký** bằng họ tên, email, mật khẩu (≥ 8 ký tự). Đăng nhập Google lần đầu với email chưa có cũng tự tạo tài khoản. Tài khoản mới là Thành viên, chưa thuộc dự án nào cho tới khi được thêm | M |
 | AUTH-03 | Lần đăng nhập đầu tiên tự lấy họ tên, ảnh đại diện từ Google; trạng thái tài khoản chuyển từ "Đã mời" sang "Đang hoạt động" | M |
 | AUTH-04 | Giữ đăng nhập 7 ngày trên thiết bị (không phải đăng nhập lại mỗi ngày); đăng xuất | M |
 | AUTH-05 | Hồ sơ cá nhân: sửa tên hiển thị, chức danh; ảnh đại diện mặc định theo Google, đổi được | M |
-| AUTH-06 | Tài khoản Quản trị viên dự phòng đăng nhập bằng email + mật khẩu, dùng khi Google gặp sự cố (đường dẫn riêng, không hiện trên trang đăng nhập) | S |
-| AUTH-07 | Giới hạn theo tên miền email công ty | W — không áp dụng vì nhân viên dùng Gmail cá nhân; kiểm soát truy cập bằng danh sách email do Quản trị viên thêm (AUTH-02) |
+| AUTH-06 | **Quên mật khẩu**: gửi liên kết đặt lại qua email (dùng 1 lần, hết hạn 30 phút). **Đặt / đổi mật khẩu** trong Cài đặt (tài khoản chỉ dùng Google đặt được mật khẩu mới); đổi xong các thiết bị khác bị đăng xuất | M |
+| AUTH-07 | Giới hạn theo tên miền email công ty | W — không áp dụng vì nhân viên dùng Gmail cá nhân; kiểm soát bằng phân quyền dự án và khóa tài khoản |
 
 **Quy tắc:**
-- Không có đăng ký công khai; không lưu mật khẩu của người dùng Google.
+- Mật khẩu chỉ lưu dạng băm (scrypt); token đặt lại mật khẩu chỉ lưu dạng băm. Form "Quên mật khẩu" luôn báo đã gửi để không lộ email nào có tài khoản.
+- Không cho đăng ký trùng email đã có (kể cả tài khoản được mời) để tránh chiếm tài khoản khi chưa xác minh email.
+- Có thể cố định một tài khoản Quản trị viên qua biến môi trường `INITIAL_ADMIN_EMAIL` + `INITIAL_ADMIN_PASSWORD` (chỉ đặt trên máy chủ, không đưa vào mã nguồn).
 - Server phải xác minh ID token của Google (chữ ký, `aud` = Client ID của hệ thống, `email_verified = true`) trước khi tạo phiên.
 - Liên kết tài khoản theo email; lần đầu lưu `google_id`, các lần sau đối chiếu theo `google_id`.
 - Tài khoản bị vô hiệu hóa đăng nhập Google thành công vẫn bị từ chối vào hệ thống.
@@ -158,21 +160,21 @@ Mức ưu tiên: **M** – bắt buộc MVP · **S** – nên có nếu kịp ·
 | ADM-02 | Thêm nhân viên bằng email Google (một hoặc nhiều email); hệ thống gửi email mời kèm link tới trang đăng nhập | M |
 | ADM-03 | Vô hiệu hóa / mở lại tài khoản (không xóa để giữ lịch sử) | M |
 | ADM-04 | Cấp / bỏ quyền Quản trị viên | M |
-| ADM-05 | Chuyển quyền Quản lý dự án khi người phụ trách nghỉ việc | M |
+| ADM-05 | Chuyển quyền Admin dự án khi người phụ trách nghỉ việc | M |
 
 ### 4.3 Dự án (PRJ)
 
 | Mã | Yêu cầu | Ưu tiên |
 | --- | --- | --- |
-| PRJ-01 | Tạo dự án: nhập **tên** (bắt buộc); **mã dự án** tự gợi ý từ tên (ví dụ "Marketing" → `MKT`), sửa được; mô tả, màu/biểu tượng (tùy chọn) | M |
+| PRJ-01 | **Quản trị viên** tạo dự án: nhập **tên** (bắt buộc); **mã dự án** tự gợi ý từ tên (ví dụ "Marketing" → `MKT`), sửa được; mô tả, màu/biểu tượng (tùy chọn) | M |
 | PRJ-02 | Sửa tên, mô tả, biểu tượng dự án | M |
 | PRJ-03 | Lưu trữ dự án (ẩn khỏi danh sách, chỉ xem) và khôi phục | M |
-| PRJ-04 | Thêm / gỡ thành viên, đổi vai trò (Quản lý dự án / Thành viên / Người xem) | M |
+| PRJ-04 | Thêm / gỡ thành viên, đổi vai trò (**Admin / Thành viên**) | M |
 | PRJ-05 | Trang danh sách dự án: dự án của tôi, đánh dấu sao, xem gần đây | M |
 | PRJ-06 | Quản lý nhãn của dự án: tên, màu (có sẵn bảng màu gợi ý) | M |
 | PRJ-07 | Xóa dự án (chỉ Quản trị viên, phải gõ lại tên dự án để xác nhận) | S |
 
-**Quy tắc:** mã dự án 2–6 ký tự in hoa, duy nhất, **không đổi được** sau khi đã có công việc. Dự án luôn có ít nhất 1 Quản lý dự án.
+**Quy tắc:** mã dự án 2–6 ký tự in hoa, duy nhất, **không đổi được** sau khi đã có công việc. Dự án luôn có ít nhất 1 Admin.
 
 ### 4.4 Bảng & Cột (BRD)
 
@@ -182,10 +184,10 @@ Mức ưu tiên: **M** – bắt buộc MVP · **S** – nên có nếu kịp ·
 | BRD-02 | **Đổi tên bảng**: bấm trực tiếp vào tên bảng, gõ tên mới, Enter để lưu, Esc để hủy | M |
 | BRD-03 | **Thêm, đổi tên, kéo đổi vị trí, xóa cột** ngay trên bảng (menu "…" ở đầu cột) | M |
 | BRD-04 | Đánh dấu một cột là **cột Hoàn thành** (mặc định cột cuối); việc vào cột này được tính là đã xong | M |
-| BRD-05 | Kéo thả công việc giữa các cột (đổi trạng thái) và trong cột (đổi thứ tự) | M |
+| BRD-05 | Kéo thả công việc giữa các cột (đổi trạng thái) và trong cột (đổi thứ tự). **Chỉ Admin** được kéo việc vào hoặc ra khỏi cột Hoàn thành; Thành viên làm xong thì kéo sang **Chờ duyệt**. Cột đích hợp lệ sáng viền khi kéo | M |
 | BRD-06 | Thẻ công việc hiển thị: mã, tiêu đề, ảnh người làm, hạn (đỏ nếu quá hạn), mức ưu tiên, nhãn, số việc con đã xong (ví dụ 2/5) | M |
 | BRD-07 | Thêm nhanh công việc ở cuối mỗi cột: gõ tiêu đề + Enter | M |
-| BRD-08 | Bộ lọc nhanh phía trên bảng: **Việc của tôi**, chọn người làm (bấm avatar), nhãn, ưu tiên, sắp hết hạn, ô tìm kiếm | M |
+| BRD-08 | Bộ lọc nhanh phía trên bảng: **Việc của tôi**, chọn người làm (bấm avatar), **nhãn, ưu tiên, hạn** (quá hạn / sắp đến hạn 3 ngày / không có hạn), ô tìm kiếm; nút "Xóa lọc" | M |
 | BRD-09 | Giới hạn số việc trong cột (WIP), vượt thì cột đổi màu cảnh báo | C |
 | BRD-10 | Nhiều bảng trong một dự án | C |
 
@@ -193,7 +195,7 @@ Mức ưu tiên: **M** – bắt buộc MVP · **S** – nên có nếu kịp ·
 - Tên bảng: 1–100 ký tự; tên cột: 1–30 ký tự, không trùng trong cùng bảng; tự bỏ khoảng trắng thừa.
 - Tối thiểu 2 cột, tối đa 10 cột; luôn có đúng 1 cột Hoàn thành.
 - Xóa cột còn công việc → hệ thống hỏi chuyển các việc đó sang cột nào.
-- Chỉ Quản lý dự án được đổi tên bảng và cấu hình cột; thay đổi hiển thị ngay cho mọi người và ghi vào lịch sử.
+- Chỉ Admin dự án được đổi tên bảng và cấu hình cột; thay đổi hiển thị ngay cho mọi người và ghi vào lịch sử.
 
 ### 4.5 Công việc (TSK)
 
@@ -209,7 +211,7 @@ Mức ưu tiên: **M** – bắt buộc MVP · **S** – nên có nếu kịp ·
 | TSK-08 | Người theo dõi: tự thêm người tạo, người làm, người bình luận; ai cũng tự bấm "Theo dõi"/"Bỏ theo dõi" được | M |
 | TSK-09 | Lịch sử thay đổi: ai đổi gì, lúc nào (ví dụ "Lan đổi hạn từ 10/11 sang 15/11") | M |
 | TSK-10 | Sao chép link, nhân bản công việc | S |
-| TSK-11 | Xóa công việc (Quản lý dự án hoặc người tạo), có Hoàn tác; xóa việc cha thì xóa cả việc con | M |
+| TSK-11 | Xóa công việc (**chỉ Admin**), có Hoàn tác; xóa việc cha thì xóa cả việc con | M |
 | TSK-12 | Liên kết công việc liên quan | C |
 
 **Thông tin của một công việc**
@@ -249,8 +251,8 @@ Dùng chung cho mô tả công việc, bình luận và mô tả dự án. Thanh
 
 | Mã | Yêu cầu | Ưu tiên |
 | --- | --- | --- |
-| CMT-01 | Viết bình luận rich text, Ctrl+Enter để gửi | M |
-| CMT-02 | Sửa/xóa bình luận của mình (hiện "đã sửa"); Quản lý dự án xóa được mọi bình luận | M |
+| CMT-01 | Viết bình luận rich text, Ctrl+Enter để gửi. Admin bình luận mọi việc; Thành viên bình luận việc được giao cho mình | M |
+| CMT-02 | Sửa/xóa bình luận của mình (hiện "đã sửa"); Admin xóa được mọi bình luận | M |
 | CMT-03 | Chuyển xem: Bình luận / Lịch sử / Tất cả | M |
 | CMT-04 | Thả cảm xúc (emoji) vào bình luận | C |
 
@@ -260,7 +262,7 @@ Dùng chung cho mô tả công việc, bình luận và mô tả dự án. Thanh
 | --- | --- | --- |
 | ATT-01 | Kéo thả hoặc chọn nhiều tệp tải lên cùng lúc, có thanh tiến trình | M |
 | ATT-02 | Xem trước ảnh và PDF ngay trong hệ thống; loại khác thì tải xuống | M |
-| ATT-03 | Xóa tệp (người tải lên hoặc Quản lý dự án) | M |
+| ATT-03 | Xóa tệp (người tải lên hoặc Admin) | M |
 
 **Quy tắc:** tối đa 10 MB/tệp; cho phép ảnh, PDF, Word, Excel, PowerPoint, txt, csv, zip; chỉ thành viên dự án mới tải được tệp.
 
@@ -269,8 +271,8 @@ Dùng chung cho mô tả công việc, bình luận và mô tả dự án. Thanh
 | Mã | Yêu cầu | Ưu tiên |
 | --- | --- | --- |
 | SRC-01 | **Dạng Danh sách**: xem công việc dạng bảng, bấm tiêu đề cột để sắp xếp, phân trang | M |
-| SRC-02 | Lọc theo: người làm, trạng thái, ưu tiên, nhãn, loại, khoảng hạn | M |
-| SRC-03 | **Tìm kiếm** ở thanh đầu trang (phím tắt `/`) theo mã hoặc tiêu đề, gợi ý kết quả khi đang gõ | M |
+| SRC-02 | Dạng Danh sách lọc theo: người làm (của tôi / chưa giao / từng người), trạng thái, ưu tiên, nhãn, loại, hạn (quá hạn / sắp đến hạn / không có hạn); lọc và phân trang ở backend | M |
+| SRC-03 | **Tìm kiếm** ở thanh đầu trang (phím tắt `/`) theo mã hoặc tiêu đề trong mọi dự án được xem, gợi ý kết quả khi đang gõ; chọn kết quả mở thẳng công việc | M |
 | SRC-04 | Chọn nhiều công việc → đổi người làm, trạng thái, nhãn cùng lúc | S |
 | SRC-05 | Lưu bộ lọc hay dùng | C |
 
@@ -327,8 +329,8 @@ Không gửi thông báo cho chính người thực hiện hành động.
 | Mã | Quy tắc |
 | --- | --- |
 | BR-01 | Người dùng chỉ thấy dự án mình tham gia; Quản trị viên thấy tất cả |
-| BR-02 | Chỉ giao việc cho người có vai trò Quản lý dự án hoặc Thành viên (không giao cho Người xem). Gỡ thành viên hoặc hạ xuống Người xem → các việc chưa xong của họ về "Chưa giao" và báo cho Quản lý dự án |
-| BR-02a | Người xem có quyền chỉ đọc: mọi API ghi (tạo, sửa, xóa, kéo thả, bình luận, tải tệp lên) trả lỗi 403. Người xem vẫn được tự bấm "Theo dõi" để nhận thông báo và tải xuống tệp đính kèm |
+| BR-02 | Giao việc được cho Admin hoặc Thành viên của dự án (tài khoản chưa bị khóa). Gỡ thành viên → các việc chưa xong của họ về "Chưa giao" |
+| BR-02a | Thành viên: mọi API tạo / sửa / xóa công việc, việc con, sprint trả lỗi 403; chỉ được bình luận, đính kèm tệp và chuyển trạng thái **việc được giao cho mình**, và không được đưa việc vào / ra cột Hoàn thành. Ai trong dự án cũng tự bấm "Theo dõi" được |
 | BR-03 | Tài khoản bị vô hiệu hóa không đăng nhập được, không được giao việc mới, tên vẫn hiện trong lịch sử |
 | BR-04 | Mã công việc là duy nhất, không đổi, không tái sử dụng |
 | BR-05 | Việc con không có việc con cấp dưới (chỉ 1 cấp) |
@@ -342,19 +344,20 @@ Không gửi thông báo cho chính người thực hiện hành động.
 
 ## 6. Ma trận phân quyền
 
-| Chức năng | Quản trị viên | Quản lý dự án | Thành viên | Người xem |
-| --- | :---: | :---: | :---: | :---: |
-| Quản lý tài khoản nhân viên | ✔ | — | — | — |
-| Tạo dự án mới (với tư cách người dùng hệ thống) | ✔ | ✔ | ✔ | ✔ |
-| Sửa / lưu trữ dự án, quản lý thành viên, nhãn | ✔ | ✔ | — | — |
-| Đổi tên bảng, thêm/sửa/xóa cột | ✔ | ✔ | — | — |
-| Xem bảng, danh sách, chi tiết công việc, tổng quan | ✔ | ✔ | ✔ | ✔ |
-| Tạo, sửa, kéo thả công việc | ✔ | ✔ | ✔ | — |
-| Được giao việc | ✔ | ✔ | ✔ | — |
-| Xóa công việc | ✔ | ✔ | Việc do mình tạo | — |
-| Bình luận, tải tệp lên | ✔ | ✔ | ✔ | — |
-| Xem bình luận, tải xuống tệp, theo dõi công việc | ✔ | ✔ | ✔ | ✔ |
-| Xóa bình luận / tệp của người khác | ✔ | ✔ | — | — |
+| Chức năng | Quản trị viên | Admin dự án | Thành viên |
+| --- | :---: | :---: | :---: |
+| Quản lý tài khoản nhân viên | ✔ | — | — |
+| Tạo dự án mới | ✔ | — | — |
+| Sửa / lưu trữ dự án, quản lý thành viên, nhãn | ✔ | ✔ | — |
+| Đổi tên bảng, thêm/sửa/xóa cột | ✔ | ✔ | — |
+| Xem bảng, danh sách, lịch, chi tiết công việc, tổng quan | ✔ | ✔ | ✔ |
+| Tạo, sửa, xóa công việc / việc con; lập sprint | ✔ | ✔ | — |
+| Được giao việc | ✔ | ✔ | ✔ |
+| Chuyển trạng thái (kéo thả) | ✔ | ✔ | Việc của mình, tới Chờ duyệt |
+| Duyệt: đưa việc vào / ra cột Hoàn thành | ✔ | ✔ | — |
+| Bình luận, tải tệp lên | ✔ | ✔ | Việc của mình |
+| Xem bình luận, tải xuống tệp, theo dõi công việc | ✔ | ✔ | ✔ |
+| Xóa bình luận / tệp của người khác | ✔ | ✔ | — |
 
 Quyền phải được kiểm tra ở API cho mọi yêu cầu; ẩn nút trên giao diện chỉ là bổ sung.
 
@@ -494,7 +497,7 @@ Quy trình: Scrum 2 tuần/sprint, họp đứng 15 phút mỗi ngày, demo và 
 | Kéo thả lỗi trên điện thoại | Trung bình | Dùng dnd-kit, làm thử ngay Sprint 2 |
 | Rich text gây lỗ hổng XSS | Cao | Làm sạch phía server, giới hạn kích thước, ảnh lưu thành tệp riêng |
 | Chế độ tối hiển thị không đồng đều | Trung bình | Dùng biến màu từ đầu; QA kiểm tra mọi màn hình ở cả hai chế độ |
-| Lỗ hổng phân quyền, tải tệp | Cao | Kiểm tra quyền ở mọi API (đặc biệt chặn ghi với Người xem), test tự động, rà soát bảo mật trước ra mắt |
+| Lỗ hổng phân quyền, tải tệp | Cao | Kiểm tra quyền ở mọi API (đặc biệt chặn tạo/sửa và duyệt Hoàn thành với Thành viên), test tự động, rà soát bảo mật trước ra mắt |
 | Lộ thông tin đăng nhập máy chủ / secret | Cao | Không lưu mật khẩu trong tài liệu, chat, mã nguồn; dùng SSH key, người dùng không phải root, secret trong biến môi trường; đổi mật khẩu ngay nếu đã chia sẻ |
 | Google đăng nhập lỗi hoặc nhân viên mất tài khoản Google | Thấp | Tài khoản Quản trị viên dự phòng (AUTH-06); Quản trị viên đổi email liên kết cho nhân viên |
 | Nhân viên nghỉ việc vẫn đăng nhập được bằng Gmail cá nhân | Cao | Quy trình nghỉ việc bắt buộc có bước vô hiệu hóa tài khoản; trang quản trị hiển thị ngày đăng nhập gần nhất để rà soát định kỳ |
@@ -524,7 +527,7 @@ Quy trình: Scrum 2 tuần/sprint, họp đứng 15 phút mỗi ngày, demo và 
 
 | # | Câu hỏi | Trạng thái |
 | --- | --- | --- |
-| Q1 | Có cần vai trò "Người xem"? | **Đã chốt:** có, chỉ xem, không sửa, không bình luận |
+| Q1 | Có cần vai trò "Người xem"? | **Đã chốt (v2.4):** không — chỉ còn Admin và Thành viên; Thành viên xem được toàn dự án nhưng chỉ thao tác trên việc của mình |
 | Q2 | Đăng nhập Google ngay từ MVP? | **Đã chốt:** có, đăng nhập bằng tài khoản Google |
 | Q3 | Thời gian lưu trữ dữ liệu và giới hạn dung lượng tệp mỗi dự án? | Chờ IT |
 | Q4 | Có nhóm nào cần làm theo sprint ngay không? | Chờ các trưởng nhóm |

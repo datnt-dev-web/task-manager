@@ -1,5 +1,6 @@
 const { OAuth2Client } = require('google-auth-library');
 const AppError = require('../utils/AppError');
+const logger = require('../utils/logger');
 
 /** Xác minh ID token do nút "Đăng nhập bằng Google" (Google Identity Services) trả về. */
 class GoogleIdentityClient {
@@ -14,7 +15,9 @@ class GoogleIdentityClient {
     try {
       const ticket = await this.client.verifyIdToken({ idToken, audience: this.clientId });
       payload = ticket.getPayload();
-    } catch {
+    } catch (err) {
+      // Hay gặp: lệch đồng hồ máy chủ ("Token used too early/late"), sai Client ID ("Wrong recipient").
+      logger.warn('Xác minh Google ID token thất bại:', err.message);
       throw AppError.unauthorized('Không xác minh được tài khoản Google, vui lòng thử lại');
     }
     if (!payload?.email || !payload.email_verified) {

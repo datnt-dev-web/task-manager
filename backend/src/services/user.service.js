@@ -21,11 +21,11 @@ class UserService {
     const { rows, count } = await this.userRepository.search({
       q,
       status: effectiveStatus,
+      excludeDisabled: !currentUser.isAdmin,
       limit: pageSize,
       offset: (page - 1) * pageSize,
     });
-    const items = currentUser.isAdmin ? rows : rows.filter((u) => u.status !== 'disabled');
-    return { items, meta: { page, pageSize, total: count } };
+    return { items: rows, meta: { page, pageSize, total: count } };
   }
 
   /** ADM-02: thêm nhân viên bằng email Google. Email đã tồn tại thì bỏ qua. */

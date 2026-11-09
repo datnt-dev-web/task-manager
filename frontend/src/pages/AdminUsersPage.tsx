@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { formatDateTime } from '@/lib/date';
+import { useDebouncedValue } from '@/lib/useDebouncedValue';
+import { Pagination } from '@/components/molecules/Pagination';
 
 const STATUS: Record<UserStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' }> = {
   active: { label: 'Đang hoạt động', variant: 'default' },
@@ -25,12 +27,15 @@ const parseEmails = (text: string) =>
     .map((e) => e.trim())
     .filter(Boolean);
 
+const PAGE_SIZE = 20;
+
 /** ADM-01..04: thêm Gmail của nhân viên, khóa/mở tài khoản, cấp quyền quản trị. */
 export function AdminUsersPage() {
   const user = useCurrentUser();
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const [emails, setEmails] = useState('');
-  const { data, isLoading } = useAllUsers(q);
+  const { data, isLoading } = useAllUsers(useDebouncedValue(q.trim()), page, PAGE_SIZE);
   const invite = useInviteUsers();
   const update = useAdminUpdateUser();
 
@@ -42,7 +47,7 @@ export function AdminUsersPage() {
     <div className="mx-auto w-full max-w-5xl space-y-6 pb-10">
       <PageHeader
         title="Quản lý nhân viên"
-        description="Chỉ những Gmail có trong danh sách này mới đăng nhập được. Khi nhân viên nghỉ việc, hãy khóa tài khoản."
+        description="Thêm nhân viên bằng email, cấp quyền Quản trị viên. Khi nhân viên nghỉ việc, hãy khóa tài khoản."
       />
 
       <section className="bg-card mx-4 space-y-3 rounded-lg border p-4 md:mx-6" aria-label="Thêm nhân viên">
@@ -63,7 +68,13 @@ export function AdminUsersPage() {
       </section>
 
       <section className="mx-4 space-y-3 md:mx-6" aria-label="Danh sách nhân viên">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo tên hoặc email" className="sm:w-72" />
+        <Input
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Tìm theo tên hoặc email" className="sm:w-72" />
         {isLoading && <Spinner />}
         <ul className="bg-card divide-y rounded-lg border">
           {data?.items.map((u) => (
@@ -96,7 +107,11 @@ export function AdminUsersPage() {
               )}
             </li>
           ))}
+          {data?.items.length === 0 && <li className="text-muted-foreground px-4 py-6 text-center text-sm">Không tìm thấy nhân viên.</li>}
         </ul>
+        {data && (
+          <Pagination page={data.meta.page} pageSize={data.meta.pageSize} total={data.meta.total} onPageChange={setPage} />
+        )}
       </section>
     </div>
   );

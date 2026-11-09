@@ -13,6 +13,7 @@ import { TaskKey } from '@/components/atoms/TaskKey';
 import { UserAvatar } from '@/components/atoms/UserAvatar';
 import { EmptyState } from '@/components/molecules/EmptyState';
 import { Button } from '@/components/ui/button';
+import { Pagination } from '@/components/molecules/Pagination';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fromNow } from '@/lib/date';
@@ -66,7 +67,6 @@ export function FileLibrary({ projectId }: { projectId?: string }) {
   });
   const files = data?.items ?? [];
   const total = data?.meta.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const resetPage = <T,>(setter: (v: T) => void) => (value: T) => {
     setter(value);
@@ -264,22 +264,7 @@ export function FileLibrary({ projectId }: { projectId?: string }) {
         )
       )}
 
-      {total > 0 && (
-        <div className="text-muted-foreground flex items-center justify-between text-xs">
-          <span>{total} tệp</span>
-          {pages > 1 && (
-            <span className="flex items-center gap-2">
-              <Button variant="outline" size="xs" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-                Trước
-              </Button>
-              Trang {page}/{pages}
-              <Button variant="outline" size="xs" disabled={page >= pages} onClick={() => setPage(page + 1)}>
-                Sau
-              </Button>
-            </span>
-          )}
-        </div>
-      )}
+      <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} unit="tệp" />
 
       <FilePreviewDialog
         attachment={previewIndex === null ? null : files[previewIndex] ?? null}

@@ -71,7 +71,7 @@ check('duplicate key -> 409', r.status === 409, r);
 r = await admin('GET', `/projects/${projectId}/board`);
 check('board has 4 default columns', r.status === 200 && r.body.data.columns.length === 4 && r.body.data.columns[3].isDone, r);
 const board = r.body.data;
-const [todo, doing, , done] = board.columns;
+const [todo, doing, review, done] = board.columns;
 
 r = await admin('PATCH', `/boards/${board.id}`, { name: 'Bảng thử nghiệm' });
 check('rename board', r.status === 200 && r.body.data.name === 'Bảng thử nghiệm', r);
@@ -84,7 +84,9 @@ const paused = r.body.data;
 r = await admin('POST', `/projects/${projectId}/members`, { userId: lanId, role: 'member' });
 check('add member Lan', r.status === 201 && r.body.data.role === 'member', r);
 r = await admin('POST', `/projects/${projectId}/members`, { userId: minhId, role: 'viewer' });
-check('add viewer Minh', r.status === 201, r);
+check('viewer role no longer exists -> 400', r.status === 400, r);
+r = await admin('POST', `/projects/${projectId}/members`, { userId: minhId, role: 'member' });
+check('add member Minh (no tasks assigned)', r.status === 201, r);
 
 r = await admin('POST', `/projects/${projectId}/labels`, { name: 'Gấp', color: '#ef4444' });
 check('create label', r.status === 201, r);
@@ -99,8 +101,6 @@ for (const title of ['Viết bài blog', 'Thiết kế banner', 'Chạy quảng 
 check('create tasks with sequential keys', t.map((x) => x.key).join(',') === `${KEY}-1,${KEY}-2,${KEY}-3`, t.map((x) => x?.key));
 const [k1, k2, k3] = t.map((x) => x.key);
 
-r = await admin('POST', `/projects/${projectId}/tasks`, { title: 'Giao cho viewer', assigneeId: minhId });
-check('cannot assign to viewer -> 400', r.status === 400, r);
 
 r = await admin('PATCH', `/tasks/${k1.toLowerCase()}`, {
   assigneeId: lanId,
@@ -153,60 +153,72 @@ r = await admin('POST', '/notifications/read', { all: true });
 r = await admin('GET', '/notifications/unread-count');
 check('mark all read', unreadBefore > 0 && r.body.data.count === 0, { unreadBefore, after: r.body });
 
-// Quyền kéo thả: Thành viên chỉ di chuyển việc được giao cho mình hoặc do mình tạo
+// Quyền: Thành viên chỉ xem, bình luận và đổi trạng thái việc được giao cho mình; mọi tạo/sửa do Quản lý dự án.
+r = await lan('POST', '/projects', { name: 'Dự án của Lan', key: `L${RUN}`.slice(0, 5) });
+check('member cannot create project -> 403', r.status === 403, r);
+r = await lan('POST', `/tasks/${k2}/comments`, { body: doc(para(text('Xen ngang'))) });
+check("member cannot comment on someone else's task -> 403", r.status === 403, r);
 r = await lan('POST', `/tasks/${k2}/move`, { columnId: todo.id });
 check("member cannot move someone else's task -> 403", r.status === 403 && r.body.error.message.includes('được giao cho mình'), r);
 r = await lan('PATCH', `/tasks/${k2}`, { columnId: todo.id });
 check("member cannot change status of someone else's task -> 403", r.status === 403, r);
 r = await lan('PATCH', `/tasks/${k2}`, { priority: 'high' });
-check("member can still edit other fields of others' tasks", r.status === 200, r);
+check("member cannot edit others' task fields -> 403", r.status === 403, r);
+r = await lan('PATCH', `/tasks/${k1}`, { priority: 'high' });
+check('member cannot edit fields of own task -> 403', r.status === 403, r);
 r = await lan('POST', `/tasks/${k1}/move`, { columnId: doing.id });
 check('member moves own assigned task', r.status === 200 && r.body.data.columnId === doing.id, r);
+r = await lan('POST', `/tasks/${k1}/move`, { columnId: done.id });
+check('member cannot move own task to Done -> 403', r.status === 403 && r.body.error.message.includes('Chờ duyệt'), r);
+r = await lan('PATCH', `/tasks/${k1}`, { columnId: review.id });
+check('member moves own task to review', r.status === 200 && r.body.data.columnId === review.id, r);
 r = await lan('POST', `/projects/${projectId}/tasks`, { title: 'Việc Lan tự tạo' });
-const lanOwnKey = r.body.data.key;
-r = await lan('POST', `/tasks/${lanOwnKey}/move`, { columnId: doing.id });
-check('member moves task they created', r.status === 200, r);
-r = await admin('POST', `/tasks/${lanOwnKey}/move`, { columnId: todo.id });
+check('member cannot create task -> 403', r.status === 403, r);
+r = await admin('POST', `/tasks/${k1}/move`, { columnId: done.id });
+check('manager approves task into Done', r.status === 200 && !!r.body.data.completedAt, r);
+r = await lan('POST', `/tasks/${k1}/move`, { columnId: todo.id });
+check('member cannot reopen Done task -> 403', r.status === 403, r);
+r = await admin('POST', `/tasks/${k2}/move`, { columnId: todo.id });
 check('manager/admin moves anyone\'s task', r.status === 200, r);
-await lan('POST', `/tasks/${k1}/move`, { columnId: todo.id, prevTaskId: null, nextTaskId: t[2].id });
+await admin('POST', `/tasks/${k1}/move`, { columnId: todo.id, prevTaskId: null, nextTaskId: t[2].id });
 
 r = await lan('PATCH', `/boards/${board.id}`, { name: 'Hack' });
 check('member cannot rename board -> 403', r.status === 403, r);
 r = await lan('DELETE', `/tasks/${k1}`);
-check('member cannot delete others task -> 403', r.status === 403, r);
+check('member cannot delete task -> 403', r.status === 403, r);
 
 const minh = await signIn(email('minh'));
 r = await minh('GET', `/projects/${projectId}/board`);
-check('viewer can view board', r.status === 200 && r.body.meta.role === 'viewer', r);
+check('member can view whole board', r.status === 200 && r.body.meta.role === 'member', r);
 r = await minh('GET', `/tasks/${k1}/comments`);
-check('viewer can read comments', r.status === 200 && r.body.data.length === 1, r);
+check('member can read comments on others task', r.status === 200 && r.body.data.length === 1, r);
 r = await minh('PATCH', `/tasks/${k1}`, { title: 'x' });
-check('viewer cannot edit -> 403', r.status === 403 && r.body.error.message.includes('Chỉ xem'), r);
+check('non-assignee member cannot edit -> 403', r.status === 403, r);
 r = await minh('POST', `/tasks/${k1}/comments`, { body: doc() });
-check('viewer cannot comment -> 403', r.status === 403, r);
+check('non-assignee member cannot comment -> 403', r.status === 403, r);
 r = await minh('PATCH', `/comments/${commentId}`, { body: doc() });
-check('viewer cannot edit comments -> 403', r.status === 403, r);
+check('member cannot edit others comments -> 403', r.status === 403, r);
 r = await minh('POST', `/tasks/${k1}/watch`);
-check('viewer can watch task', r.status === 200 && r.body.data.watching === true, r);
+check('member can watch any task', r.status === 200 && r.body.data.watching === true, r);
 r = await minh('GET', `/tasks/${k1}`);
 check('task detail reports watching', r.body.meta.watching === true, r.body.meta);
 
 // ---------- Việc con ----------
-r = await lan('POST', `/tasks/${k1}/subtasks`, { title: 'Viết dàn ý' });
+r = await lan('POST', `/tasks/${k1}/subtasks`, { title: 'Lan tự thêm' });
+check('member cannot create subtask -> 403', r.status === 403, r);
+r = await admin('POST', `/tasks/${k1}/subtasks`, { title: 'Viết dàn ý' });
 check('create subtask', r.status === 201 && r.body.data.isDone === false, r);
 const subtaskId = r.body.data.id;
-r = await lan('POST', `/tasks/${k1}/subtasks`, { title: 'Giao viewer', assigneeId: minhId });
-check('cannot assign subtask to viewer -> 400', r.status === 400, r);
-r = await lan('PATCH', `/subtasks/${subtaskId}`, { isDone: true });
+r = await admin('PATCH', `/subtasks/${subtaskId}`, { isDone: true });
 check('tick subtask done', r.status === 200 && r.body.data.isDone === true, r);
-await lan('POST', `/tasks/${k1}/subtasks`, { title: 'Chọn ảnh minh họa' });
+await admin('POST', `/tasks/${k1}/subtasks`, { title: 'Chọn ảnh minh họa' });
 r = await admin('GET', `/projects/${projectId}/board`);
 const card = r.body.data.tasks.find((x) => x.key === k1);
 check('board card shows subtask progress 1/2', card.subtaskCount === 2 && card.subtaskDoneCount === 1, card);
 r = await admin('GET', `/tasks/${k1}`);
 check('task detail lists subtasks in order', r.body.data.subtasks.map((s) => s.title).join('|') === 'Viết dàn ý|Chọn ảnh minh họa', r.body.data.subtasks);
 r = await minh('PATCH', `/subtasks/${subtaskId}`, { isDone: false });
-check('viewer cannot edit subtask -> 403', r.status === 403, r);
+check('member cannot edit subtask -> 403', r.status === 403, r);
 
 // ---------- Tệp đính kèm ----------
 const png = Buffer.from(
@@ -233,9 +245,9 @@ try {
   check('reject > 10MB (connection closed early)', err.cause?.code === 'ECONNRESET' || err.cause?.code === 'EPIPE', err.cause?.code);
 }
 r = await minh('POST', `/tasks/${k1}/attachments`, form('note.txt', Buffer.from('hello')));
-check('viewer cannot upload -> 403', r.status === 403, r);
+check('non-assignee member cannot upload -> 403', r.status === 403, r);
 r = await minh('GET', `${attachment.url.replace('/api/v1', '')}?inline=1`, null, { raw: true });
-check('viewer can download inline', r.status === 200 && r.buffer.equals(png) && r.headers.get('content-disposition').startsWith('inline'), r.status);
+check('member can download inline', r.status === 200 && r.buffer.equals(png) && r.headers.get('content-disposition').startsWith('inline'), r.status);
 r = await admin('GET', attachment.url.replace('/api/v1', ''), null, { raw: true });
 check('download as attachment with UTF-8 filename', r.headers.get('content-disposition').includes("filename*=UTF-8''%E1%BA%A3nh"), r.headers.get('content-disposition'));
 const outsider = await signIn((await admin('POST', '/users', { emails: [email('out')] }), email('out')));
@@ -267,13 +279,15 @@ check('update email settings (merge)', r.status === 200 && r.body.data.emailSett
 
 // ---------- Kho tệp tập trung ----------
 const pdf = Buffer.from('%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF');
-await lan('POST', `/tasks/${k2}/attachments`, form('Hợp đồng quý 4.pdf', pdf, 'application/pdf'));
+r = await lan('POST', `/tasks/${k2}/attachments`, form('lén.pdf', pdf, 'application/pdf'));
+check("member cannot upload to someone else's task -> 403", r.status === 403, r);
+await lan('POST', `/tasks/${k1}/attachments`, form('Hợp đồng quý 4.pdf', pdf, 'application/pdf'));
 await admin('POST', `/tasks/${k3}/attachments`, form('logo.png', png, 'image/png'));
 r = await lan('GET', `/attachments?projectId=${projectId}`);
 const libNames = r.body.data.map((a) => a.fileName);
 check('file library lists files of all tasks in project', r.status === 200 && libNames.includes('Hợp đồng quý 4.pdf') && libNames.includes('logo.png'), libNames);
 const contract = r.body.data.find((a) => a.fileName === 'Hợp đồng quý 4.pdf');
-check('file library shows which task/project a file belongs to', contract.task.key === k2 && contract.task.project.id === projectId && contract.uploadedBy.id === lanId, contract.task);
+check('file library shows which task/project a file belongs to', contract.task.key === k1 && contract.task.project.id === projectId && contract.uploadedBy.id === lanId, contract.task);
 r = await lan('GET', `/attachments?projectId=${projectId}&kind=pdf`);
 check('filter by kind', r.body.data.every((a) => a.mimeType === 'application/pdf') && r.body.meta.total >= 1, r.body.data.map((a) => a.mimeType));
 r = await lan('GET', `/attachments?projectId=${projectId}&mine=true`);
@@ -281,7 +295,7 @@ check('filter "my uploads"', r.body.data.every((a) => a.uploadedBy.id === lanId)
 r = await lan('GET', `/attachments?q=${encodeURIComponent('hợp đồng')}`);
 check('search by file name across my projects', r.body.data.some((a) => a.id === contract.id), r.body.data.map((a) => a.fileName));
 r = await minh('GET', `/attachments?projectId=${projectId}`);
-check('viewer sees project files', r.status === 200 && r.body.meta.total >= 2, r.body.meta);
+check('member sees project files', r.status === 200 && r.body.meta.total >= 2, r.body.meta);
 r = await outsider('GET', '/attachments');
 check('outsider sees no files of this project', r.status === 200 && !r.body.data.some((a) => a.task.projectId === projectId), r.body.meta);
 r = await outsider('GET', `/attachments?projectId=${projectId}`);
@@ -297,7 +311,7 @@ check('activity stores display values (old → new)', assigneeLog.oldValue === n
 r = await admin('GET', `/tasks/${k2}/activity`);
 check('status change logged on move', r.body.data.some((a) => a.field === 'status' && a.newValue === 'Hoàn thành'), r.body.data);
 r = await minh('GET', `/tasks/${k1}/activity`);
-check('viewer can read activity', r.status === 200, r.status);
+check('member can read activity', r.status === 200, r.status);
 r = await outsider('GET', `/tasks/${k1}/activity`);
 check('outsider cannot read activity -> 404', r.status === 404, r.status);
 
@@ -333,9 +347,9 @@ const backlogKeysBefore = r.body.data.backlog.map((x) => x.key);
 check('backlog lists open tasks without sprint', r.status === 200 && r.body.data.sprints.length === 2 && backlogKeysBefore.includes(k1), r.body.data);
 
 r = await lan('POST', `/tasks/${k1}/plan`, { sprintId: sprint1.id });
-check('member plans task into sprint', r.status === 200 && r.body.data.sprintId === sprint1.id && r.body.data.sprint.name === sprint1.name, r);
-r = await lan('POST', `/tasks/${k3}/plan`, { sprintId: sprint1.id });
-check("member cannot plan someone else's task -> 403", r.status === 403, r);
+check('member cannot plan sprint -> 403', r.status === 403, r);
+r = await admin('POST', `/tasks/${k1}/plan`, { sprintId: sprint1.id });
+check('manager plans task into sprint', r.status === 200 && r.body.data.sprintId === sprint1.id && r.body.data.sprint.name === sprint1.name, r);
 r = await admin('POST', `/tasks/${k3}/plan`, { sprintId: sprint1.id, prevTaskId: null, nextTaskId: t[0].id });
 r = await admin('GET', `/projects/${projectId}/backlog`);
 const s1 = r.body.data.sprints.find((s) => s.id === sprint1.id);
@@ -343,7 +357,7 @@ check('plan with position (k3 above k1)', s1.tasks.map((x) => x.key).join(',') =
 r = await admin('GET', `/tasks/${k1}/activity`);
 check('sprint change logged', r.body.data.some((a) => a.field === 'sprint' && a.newValue === sprint1.name), r.body.data.slice(0, 3));
 r = await minh('POST', `/tasks/${k1}/plan`, { sprintId: null });
-check('viewer cannot plan -> 403', r.status === 403, r);
+check('member cannot plan -> 403', r.status === 403, r);
 
 r = await admin('POST', `/sprints/${sprint1.id}/start`, {});
 check('start sprint (default 2 weeks)', r.status === 200 && r.body.data.state === 'active' && r.body.data.startDate && r.body.data.endDate, r);
@@ -417,6 +431,17 @@ r = await admin('POST', `/projects/${projectId}/tasks`, { title: 'Sau lưu trữ
 check('archived project is read-only -> 403', r.status === 403, r);
 r = await admin('PATCH', `/projects/${projectId}`, { archived: false });
 check('restore archived project', r.status === 200 && r.body.data.archivedAt === null, r);
+
+// ---------- Tổng quan dự án (DSH-02) ----------
+await admin('POST', `/projects/${projectId}/tasks`, { title: 'Việc trễ hạn', assigneeId: adminId, dueDate: '2020-01-01' });
+r = await admin('GET', `/projects/${projectId}/overview`);
+const ov = r.body.data;
+check('overview totals are consistent',
+  r.status === 200 && ov.total === ov.done + ov.open && ov.byColumn.reduce((s, c) => s + c.count, 0) === ov.total &&
+  ov.byAssignee.reduce((s, a) => s + a.open + a.done, 0) === ov.total, ov);
+check('overview counts overdue task per assignee', ov.overdue >= 1 && ov.byAssignee.find((a) => a.user?.id === adminId)?.overdue >= 1, ov.byAssignee);
+r = await outsider('GET', `/projects/${projectId}/overview`);
+check('outsider cannot view overview -> 404', r.status === 404, r);
 
 console.log(failures ? `\n${failures} FAILED` : '\nALL PASSED');
 process.exit(failures ? 1 : 0);

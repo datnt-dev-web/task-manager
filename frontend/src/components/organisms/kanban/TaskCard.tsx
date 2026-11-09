@@ -17,10 +17,12 @@ interface TaskCardViewProps {
   onOpen?: (task: Task) => void;
   dragging?: boolean;
   overlay?: boolean;
+  /** Vừa được thả sang cột mới → chạy hiệu ứng vệt sáng dọc viền. */
+  landed?: boolean;
 }
 
 /** BRD-06: mã, tiêu đề, người làm, hạn (đỏ nếu quá hạn), ưu tiên, nhãn. */
-export const TaskCardView = memo(function TaskCardView({ task, onOpen, dragging, overlay }: TaskCardViewProps) {
+export const TaskCardView = memo(function TaskCardView({ task, onOpen, dragging, overlay, landed }: TaskCardViewProps) {
   const done = !!task.completedAt;
   return (
     <div
@@ -35,6 +37,7 @@ export const TaskCardView = memo(function TaskCardView({ task, onOpen, dragging,
         'focus-visible:ring-ring outline-none focus-visible:ring-2',
         dragging && 'opacity-40',
         overlay && 'rotate-2 cursor-grabbing shadow-lg',
+        landed && 'card-landed',
       )}
     >
       <p className={cn('line-clamp-3 leading-snug', done && 'text-muted-foreground')}>{task.title}</p>
@@ -75,12 +78,17 @@ export function SortableTaskCard({
   onOpen,
   disabled,
   lockedHint = false,
+  hint,
+  landed = false,
 }: {
   task: Task;
   onOpen: (task: Task) => void;
   disabled: boolean;
   /** Người dùng sửa được dự án nhưng không kéo được thẻ này → hiện gợi ý lý do. */
   lockedHint?: boolean;
+  /** Lý do cụ thể không kéo được (ghi đè gợi ý mặc định). */
+  hint?: string;
+  landed?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
@@ -95,9 +103,9 @@ export function SortableTaskCard({
       {...attributes}
       {...listeners}
       className={cn(!disabled && 'cursor-grab touch-manipulation')}
-      title={disabled && lockedHint ? CANNOT_MOVE_HINT : undefined}
+      title={disabled && lockedHint ? (hint ?? CANNOT_MOVE_HINT) : undefined}
     >
-      <TaskCardView task={task} onOpen={onOpen} dragging={isDragging} />
+      <TaskCardView task={task} onOpen={onOpen} dragging={isDragging} landed={landed} />
     </div>
   );
 }

@@ -4,9 +4,15 @@ const { GAP, positionBetween, needsRebalance } = require('../utils/position');
 const ActivityService = require('./activity.service');
 
 const MAX_CALENDAR_DAYS = 62;
+const DUE_SOON_DAYS = 3;
+const isoDateIn = (date, timeZone) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(date);
 
 const ASSIGNABLE_ROLES = new Set(['manager', 'member']);
-const CANNOT_MOVE = 'Bạn chỉ có thể di chuyển công việc được giao cho mình hoặc do mình tạo';
+const CANNOT_MOVE = 'Bạn chỉ có thể di chuyển công việc được giao cho mình';
+const NOT_YOUR_TASK = 'Bạn chỉ có thể bình luận công việc được giao cho mình';
+const MEMBER_EDITABLE_FIELDS = new Set(['columnId']);
+const ONLY_MANAGER_COMPLETES =
+  'Chỉ Quản trị viên / Quản lý dự án được duyệt hoàn thành. Làm xong, hãy chuyển công việc sang cột Chờ duyệt.';
 const SIMPLE_FIELDS = ['title', 'type', 'priority', 'dueDate', 'assigneeId'];
 
 class TaskService {
@@ -24,7 +30,9 @@ class TaskService {
     notificationService,
     activityService,
     projectAccessService,
+    config,
   }) {
+    this.config = config;
     this.unitOfWork = unitOfWork;
     this.taskRepository = taskRepository;
     this.projectRepository = projectRepository;
@@ -47,12 +55,23 @@ class TaskService {
     else if (assignee === 'none') assigneeId = null;
     else assigneeId = assignee;
 
+    // Mốc ngày theo múi giờ nghiệp vụ cho bộ lọc "quá hạn" / "sắp đến hạn".
+    const now = new Date();
+    const today = isoDateIn(now, this.config.TZ_BUSINESS);
+    const soonUntil = isoDateIn(new Date(now.getTime() + DUE_SOON_DAYS * 86_400_000), this.config.TZ_BUSINESS);
     const { rows, count } = await this.taskRepository.search(
       projectId,
-      { ...filters, assigneeId },
+      { ...filters, assigneeId, today, soonUntil },
       { limit: pageSize, offset: (page - 1) * pageSize },
     );
     return { items: rows, meta: { page, pageSize, total: count } };
+  }
+
+  /** SRC-03: tìm nhanh toàn hệ thống — chỉ trong các dự án người dùng là thành viên (Quản trị viên: mọi dự án). */
+  async quickSearch(user, { q, limit }) {
+    const projectIds = user.isAdmin ? null : await this.projectMemberRepository.listProjectIds(user.id);
+    if (projectIds && projectIds.length === 0) return [];
+    return this.taskRepository.quickSearch(projectIds, q, limit);
   }
 
   /** DSH-01: việc chưa xong của tôi ở mọi dự án. */
@@ -68,7 +87,8 @@ class TaskService {
 
   /** TSK-01..03: chỉ tiêu đề bắt buộc; mã công việc sinh tuần tự trong transaction có khóa dòng. */
   async create(user, projectId, data) {
-    await this.access.assert(user, projectId, 'member');
+    // Chỉ Quản trị viên / Quản lý dự án được tạo công việc.
+    await this.access.assert(user, projectId, 'manager');
     const column = await this.#resolveColumn(projectId, data.columnId);
     if (data.assigneeId) await this.assertAssignable(projectId, data.assigneeId);
     if (data.labelIds?.length) await this.#assertLabels(projectId, data.labelIds);
@@ -119,6 +139,10 @@ class TaskService {
   /** TSK-05: sửa tại chỗ từng trường. */
   async update(user, key, data) {
     const { task, role } = await this.#load(user, key, 'member');
+    // Thành viên chỉ được đổi trạng thái việc của mình; mọi chỉnh sửa khác do Quản lý dự án làm.
+    if (role !== 'manager' && Object.keys(data).some((field) => !MEMBER_EDITABLE_FIELDS.has(field))) {
+      throw AppError.forbidden('Chỉ Quản trị viên / Quản lý dự án được sửa công việc');
+    }
     if (data.columnId && data.columnId !== task.columnId) this.assertCanMove(user, role, task);
     const before = { assigneeId: task.assigneeId, description: task.description, columnName: task.column?.name };
     const beforeSnapshot = ActivityService.snapshot(task);
@@ -134,6 +158,7 @@ class TaskService {
     let targetColumn = null;
     if (data.columnId && data.columnId !== task.columnId) {
       targetColumn = await this.#resolveColumn(task.projectId, data.columnId);
+      this.assertCanChangeColumn(role, task.column, targetColumn);
       changes.columnId = targetColumn.id;
       changes.position = positionBetween(await this.taskRepository.maxPosition(targetColumn.id), null);
       changes.completedAt = this.#completedAt(task, targetColumn);
@@ -165,6 +190,7 @@ class TaskService {
     const { task, role } = await this.#load(user, key, 'member');
     this.assertCanMove(user, role, task);
     const column = await this.#resolveColumn(task.projectId, columnId);
+    this.assertCanChangeColumn(role, task.column, column);
     if (prevTaskId === task.id || nextTaskId === task.id) throw AppError.badRequest('Vị trí thả không hợp lệ');
     const fromColumnName = task.column?.name;
     const columnChanged = column.id !== task.columnId;
@@ -186,12 +212,9 @@ class TaskService {
     return saved;
   }
 
-  /** TSK-11: Quản lý dự án hoặc người tạo được xóa (xóa mềm). */
+  /** TSK-11: chỉ Quản trị viên / Quản lý dự án được xóa (xóa mềm). */
   async remove(user, key) {
-    const { task, role } = await this.#load(user, key, 'member');
-    if (role !== 'manager' && task.creatorId !== user.id) {
-      throw AppError.forbidden('Chỉ người tạo hoặc Quản lý dự án được xóa công việc này');
-    }
+    const { task } = await this.#load(user, key, 'manager');
     await task.destroy();
     await this.activity.record(user, task, [{ action: 'deleted', to: task.title }]);
   }
@@ -225,15 +248,33 @@ class TaskService {
   /**
    * Quyền di chuyển (kéo thả, đổi trạng thái, xếp vào sprint):
    * Quản trị viên / Quản lý dự án được di chuyển mọi công việc; Thành viên chỉ di chuyển việc
-   * được giao cho mình hoặc do mình tạo. Người xem đã bị chặn từ trước (minRole = member).
+   * được giao cho mình. Người xem đã bị chặn từ trước (minRole = member).
    */
   canMove(user, role, task) {
     if (role === 'manager') return true;
-    return role === 'member' && (task.assigneeId === user.id || task.creatorId === user.id);
+    return role === 'member' && task.assigneeId === user.id;
+  }
+
+  /**
+   * Bình luận / đính kèm tệp: Quản lý dự án với mọi việc, Thành viên chỉ với việc được giao cho mình.
+   */
+  async loadForParticipation(user, key) {
+    const loaded = await this.#load(user, key, 'member');
+    if (loaded.role !== 'manager' && loaded.task.assigneeId !== user.id) throw AppError.forbidden(NOT_YOUR_TASK);
+    return loaded;
   }
 
   assertCanMove(user, role, task) {
     if (!this.canMove(user, role, task)) throw AppError.forbidden(CANNOT_MOVE);
+  }
+
+  /**
+   * Quy trình duyệt: chỉ Quản trị viên / Quản lý dự án được đưa công việc vào (duyệt) hoặc ra khỏi
+   * (mở lại) cột Hoàn thành. Thành viên làm xong thì chuyển sang Chờ duyệt.
+   */
+  assertCanChangeColumn(role, fromColumn, toColumn) {
+    if (role === 'manager' || fromColumn?.id === toColumn.id) return;
+    if (toColumn.isDone || fromColumn?.isDone) throw AppError.forbidden(ONLY_MANAGER_COMPLETES);
   }
 
   /** BR-02: chỉ giao cho Quản lý dự án / Thành viên, tài khoản chưa bị khóa. */

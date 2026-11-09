@@ -1,6 +1,10 @@
 import { useMemo, useState } from 'react';
 import { CalendarRange, Search, Target } from 'lucide-react';
-import type { Board, ProjectMember, Task } from '@/domain/entities';
+import type { Board, ProjectMember, Task, TaskPriority } from '@/domain/entities';
+import { DUE_FILTER_LABELS, matchesDue, PRIORITIES, PRIORITY_LABELS, type DueFilter } from '@/domain/rules/task.rules';
+import { useLabels } from '@/application/projects/useProjects';
+import { PriorityIcon } from '@/components/atoms/PriorityIcon';
+import { FilterMenu } from '@/components/molecules/FilterMenu';
 import { sprintDateRange, sprintDaysLeft } from '@/domain/rules/sprint.rules';
 import { displayName } from '@/domain/rules/user.rules';
 import { UserAvatar } from '@/components/atoms/UserAvatar';
@@ -21,10 +25,23 @@ interface BoardViewProps {
 }
 
 /** Dạng Bảng: bộ lọc nhanh (BRD-08) + Kanban; có sprint đang chạy thì hiện thanh thông tin sprint. */
-export function BoardView({ board, members, currentUserId, canEdit, canMove, canManage, onOpenTask, onGoToBacklog }: BoardViewProps) {
+export function BoardView({
+  board,
+  members,
+  currentUserId,
+  canEdit,
+  canMove,
+  canManage,
+  onOpenTask,
+  onGoToBacklog,
+}: BoardViewProps) {
   const [q, setQ] = useState('');
   const [onlyMine, setOnlyMine] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [priorities, setPriorities] = useState<string[]>([]);
+  const [labelIds, setLabelIds] = useState<string[]>([]);
+  const [due, setDue] = useState<DueFilter | null>(null);
+  const { data: labels = [] } = useLabels(board.projectId);
 
   const tasks = useMemo(() => {
     const keyword = q.trim().toLowerCase();
@@ -32,12 +49,15 @@ export function BoardView({ board, members, currentUserId, canEdit, canMove, can
       if (onlyMine && t.assigneeId !== currentUserId) return false;
       if (assigneeIds.length && !assigneeIds.includes(t.assigneeId ?? '')) return false;
       if (keyword && !t.title.toLowerCase().includes(keyword) && !t.key.toLowerCase().includes(keyword)) return false;
+      if (priorities.length && !priorities.includes(t.priority)) return false;
+      if (labelIds.length && !t.labels.some((l) => labelIds.includes(l.id))) return false;
+      if (due && !matchesDue(t, due)) return false;
       return true;
     });
-  }, [board.tasks, q, onlyMine, assigneeIds, currentUserId]);
+  }, [board.tasks, q, onlyMine, assigneeIds, currentUserId, priorities, labelIds, due]);
+  const filtering = !!q || onlyMine || assigneeIds.length > 0 || priorities.length > 0 || labelIds.length > 0 || !!due;
 
-  const toggleAssignee = (id: string) =>
-    setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  const toggleAssignee = (id: string) => setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   const sprint = board.activeSprint;
   const daysLeft = sprint ? sprintDaysLeft(sprint) : null;
 
@@ -70,32 +90,70 @@ export function BoardView({ board, members, currentUserId, canEdit, canMove, can
       <div className="flex flex-wrap items-center gap-2 px-4 pb-3 md:px-6">
         <div className="relative w-full sm:w-56">
           <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" aria-hidden />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Tìm theo mã, tiêu đề" aria-label="Tìm công việc trên bảng" className="h-8 pl-8" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Tìm theo mã, tiêu đề"
+            aria-label="Tìm công việc trên bảng"
+            className="h-8 pl-8"
+          />
         </div>
         <div className="flex -space-x-1.5" role="group" aria-label="Lọc theo người làm">
-          {members
-            .filter((m) => m.role !== 'viewer')
-            .slice(0, 8)
-            .map((m) => (
-              <button
-                key={m.userId}
-                type="button"
-                aria-pressed={assigneeIds.includes(m.userId)}
-                title={displayName(m.user)}
-                onClick={() => toggleAssignee(m.userId)}
-                className={cn(
-                  'ring-background rounded-full ring-2 transition-transform hover:z-10 hover:-translate-y-0.5',
-                  assigneeIds.includes(m.userId) && 'ring-primary z-10',
-                )}
-              >
-                <UserAvatar user={m.user} size="sm" />
-              </button>
-            ))}
+          {members.slice(0, 8).map((m) => (
+            <button
+              key={m.userId}
+              type="button"
+              aria-pressed={assigneeIds.includes(m.userId)}
+              title={displayName(m.user)}
+              onClick={() => toggleAssignee(m.userId)}
+              className={cn(
+                'ring-background rounded-full ring-2 transition-transform hover:z-10 hover:-translate-y-0.5',
+                assigneeIds.includes(m.userId) && 'ring-primary z-10',
+              )}
+            >
+              <UserAvatar user={m.user} size="sm" />
+            </button>
+          ))}
         </div>
-        <Button variant={onlyMine ? 'secondary' : 'ghost'} size="sm" aria-pressed={onlyMine} onClick={() => setOnlyMine((v) => !v)}>
+        <Button
+          variant={onlyMine ? 'secondary' : 'ghost'}
+          size="sm"
+          aria-pressed={onlyMine}
+          onClick={() => setOnlyMine((v) => !v)}
+        >
           Việc của tôi
         </Button>
-        {(q || onlyMine || assigneeIds.length > 0) && (
+        <FilterMenu
+          multiple
+          label="Ưu tiên"
+          value={priorities}
+          onChange={setPriorities}
+          options={PRIORITIES.map((p) => ({
+            value: p,
+            label: PRIORITY_LABELS[p],
+            icon: <PriorityIcon priority={p as TaskPriority} />,
+          }))}
+        />
+        {labels.length > 0 && (
+          <FilterMenu
+            multiple
+            label="Nhãn"
+            value={labelIds}
+            onChange={setLabelIds}
+            options={labels.map((l) => ({
+              value: l.id,
+              label: l.name,
+              icon: <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: l.color }} aria-hidden />,
+            }))}
+          />
+        )}
+        <FilterMenu
+          label="Hạn"
+          value={due}
+          onChange={(v) => setDue(v as DueFilter | null)}
+          options={(Object.keys(DUE_FILTER_LABELS) as DueFilter[]).map((d) => ({ value: d, label: DUE_FILTER_LABELS[d] }))}
+        />
+        {filtering && (
           <Button
             variant="link"
             size="sm"
@@ -103,6 +161,9 @@ export function BoardView({ board, members, currentUserId, canEdit, canMove, can
               setQ('');
               setOnlyMine(false);
               setAssigneeIds([]);
+              setPriorities([]);
+              setLabelIds([]);
+              setDue(null);
             }}
           >
             Xóa lọc
@@ -111,7 +172,14 @@ export function BoardView({ board, members, currentUserId, canEdit, canMove, can
       </div>
 
       <div className="min-h-0 flex-1">
-        <KanbanBoard board={board} tasks={tasks} canEdit={canEdit} canMove={canMove} canManage={canManage} onOpenTask={onOpenTask} />
+        <KanbanBoard
+          board={board}
+          tasks={tasks}
+          canEdit={canEdit}
+          canMove={canMove}
+          canManage={canManage}
+          onOpenTask={onOpenTask}
+        />
       </div>
     </div>
   );

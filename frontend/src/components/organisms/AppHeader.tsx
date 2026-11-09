@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import type { User } from '@/domain/entities';
+import { canEditTasks } from '@/domain/rules/permissions';
+import { useProjects } from '@/application/projects/useProjects';
 import { UserMenu } from '@/components/molecules/UserMenu';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { CreateTaskDialog } from './CreateTaskDialog';
+import { GlobalSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 
 const isTyping = (target: EventTarget | null) =>
@@ -13,9 +16,13 @@ const isTyping = (target: EventTarget | null) =>
 
 export function AppHeader({ user }: { user: User }) {
   const [creating, setCreating] = useState(false);
+  // Chỉ Quản trị viên / Quản lý dự án được tạo công việc → nhân viên không thấy nút Tạo.
+  const { data: projects = [] } = useProjects();
+  const canCreate = user.isAdmin || projects.some((p) => canEditTasks(p.role));
 
   // UI-03: phím tắt C để tạo công việc.
   useEffect(() => {
+    if (!canCreate) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
         if (document.querySelector('[role="dialog"]')) return;
@@ -25,20 +32,23 @@ export function AppHeader({ user }: { user: User }) {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [canCreate]);
 
   return (
     <header className="bg-background/95 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
       <SidebarTrigger aria-label="Thu gọn / mở thanh bên" />
       <Separator orientation="vertical" className="mr-1 h-5" />
-      <Button size="sm" onClick={() => setCreating(true)} title="Tạo công việc (phím C)">
-        <Plus /> Tạo
-      </Button>
+      {canCreate && (
+        <Button size="sm" onClick={() => setCreating(true)} title="Tạo công việc (phím C)">
+          <Plus /> Tạo
+        </Button>
+      )}
       <div className="ml-auto flex items-center gap-1">
+        <GlobalSearch />
         <NotificationBell />
         <UserMenu user={user} />
       </div>
-      <CreateTaskDialog open={creating} onOpenChange={setCreating} />
+      {canCreate && <CreateTaskDialog open={creating} onOpenChange={setCreating} />}
     </header>
   );
 }

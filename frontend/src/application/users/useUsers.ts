@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { userApi } from '@/infrastructure/api/user.api';
 import { notify } from '../notify';
 import { queryKeys } from '../queryKeys';
@@ -7,8 +7,13 @@ import { queryKeys } from '../queryKeys';
 export const useUserDirectory = (q: string) =>
   useQuery({ queryKey: queryKeys.users(q), queryFn: () => userApi.list({ q, pageSize: 20 }), staleTime: 30_000 });
 
-export const useAllUsers = (q: string) =>
-  useQuery({ queryKey: [...queryKeys.users(q), 'admin'], queryFn: () => userApi.list({ q, pageSize: 100 }) });
+/** Trang Quản lý nhân viên: phân trang + tìm kiếm ở backend. */
+export const useAllUsers = (q: string, page: number, pageSize: number) =>
+  useQuery({
+    queryKey: [...queryKeys.users(q), 'admin', page, pageSize],
+    queryFn: () => userApi.list({ q: q || undefined, page, pageSize }),
+    placeholderData: keepPreviousData,
+  });
 
 /** ADM-03/04: khóa/mở tài khoản, cấp/bỏ quyền Quản trị viên. */
 export function useAdminUpdateUser() {

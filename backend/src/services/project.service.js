@@ -1,4 +1,7 @@
 const AppError = require('../utils/AppError');
+const { USER_BRIEF_ATTRIBUTES } = require('../repositories/attributes');
+
+const todayIso = (timeZone) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date());
 
 const DEFAULT_BOARD_NAME = 'Bảng công việc';
 const DEFAULT_COLUMNS = [
@@ -25,7 +28,9 @@ class ProjectService {
     userRepository,
     notificationService,
     projectAccessService,
+    config,
   }) {
+    this.config = config;
     this.unitOfWork = unitOfWork;
     this.projectRepository = projectRepository;
     this.projectMemberRepository = projectMemberRepository;
@@ -47,6 +52,57 @@ class ProjectService {
     return projects.map((p) => withRole(p));
   }
 
+  /** Trang "Dự án": phân trang + tìm kiếm ở backend. */
+  async searchForUser(user, { archived, q, page, pageSize }) {
+    const { rows, count } = await this.projectRepository.searchPage({
+      userId: user.isAdmin ? undefined : user.id,
+      archived,
+      q,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    });
+    const items = rows.map((p) => withRole(p, user.isAdmin ? 'manager' : undefined));
+    return { items, meta: { page, pageSize, total: count } };
+  }
+
+  /**
+   * DSH-02: tổng quan dự án — số việc theo cột, theo người làm, số việc quá hạn, % hoàn thành.
+   * Mọi thành viên dự án đều xem được.
+   */
+  async overview(user, projectId) {
+    await this.access.assert(user, projectId, 'viewer');
+    const board = await this.boardRepository.findByProjectId(projectId);
+    const [columns, counts] = await Promise.all([
+      this.boardColumnRepository.listByBoard(board.id),
+      this.taskRepository.overviewCounts(projectId, todayIso(this.config.TZ_BUSINESS)),
+    ]);
+
+    const countByColumn = new Map(counts.byColumn.map((r) => [r.columnId, r.count]));
+    const byColumn = columns.map((c) => ({ id: c.id, name: c.name, isDone: c.isDone, count: countByColumn.get(c.id) ?? 0 }));
+
+    const assigneeIds = counts.byAssignee.map((r) => r.assigneeId).filter(Boolean);
+    const users = assigneeIds.length
+      ? await this.userRepository.findAll({ id: assigneeIds }, { attributes: USER_BRIEF_ATTRIBUTES })
+      : [];
+    const userById = new Map(users.map((u) => [u.id, u]));
+    const byAssignee = counts.byAssignee
+      .map((r) => ({ user: r.assigneeId ? userById.get(r.assigneeId) ?? null : null, open: r.open, done: r.done, overdue: r.overdue }))
+      .sort((a, b) => (a.user === null) - (b.user === null) || b.open - a.open || b.overdue - a.overdue);
+
+    const sum = (key) => counts.byAssignee.reduce((total, r) => total + r[key], 0);
+    const done = sum('done');
+    const total = done + sum('open');
+    return {
+      total,
+      done,
+      open: total - done,
+      overdue: sum('overdue'),
+      unassigned: counts.byAssignee.find((r) => r.assigneeId === null)?.open ?? 0,
+      byColumn,
+      byAssignee,
+    };
+  }
+
   async get(user, projectId) {
     const { project, role } = await this.access.assert(user, projectId, 'viewer');
     return withRole(project, role);
@@ -54,6 +110,7 @@ class ProjectService {
 
   /** PRJ-01: tạo dự án + người tạo làm Quản lý + bảng mặc định 4 cột (BRD-01). */
   async create(user, data) {
+    if (!user.isAdmin) throw AppError.forbidden('Chỉ Quản trị viên được tạo dự án');
     if (await this.projectRepository.findByKey(data.key, { paranoid: false })) {
       throw AppError.conflict(`Mã dự án ${data.key} đã được sử dụng`);
     }
@@ -111,7 +168,6 @@ class ProjectService {
     await this.unitOfWork.run(async (transaction) => {
       if (membership.role === 'manager' && role !== 'manager') await this.#ensureAnotherManager(projectId, transaction);
       await membership.update({ role }, { transaction });
-      if (role === 'viewer') await this.#unassignOpenWork(projectId, userId, transaction);
     });
     return this.#findMember(projectId, userId);
   }

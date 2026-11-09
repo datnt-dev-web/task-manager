@@ -18,9 +18,9 @@ class CommentService {
     return this.commentRepository.listByTask(task.id, { order });
   }
 
-  /** CMT-01: Người xem không được bình luận. Người bình luận tự theo dõi công việc. */
+  /** CMT-01: Quản lý dự án bình luận mọi việc; Thành viên chỉ bình luận việc được giao cho mình. */
   async create(user, taskKey, rawBody) {
-    const { task } = await this.taskService.loadForAccess(user, taskKey, 'member');
+    const { task } = await this.taskService.loadForParticipation(user, taskKey);
     const body = sanitizeDoc(rawBody);
     const bodyText = toPlainText(body);
     const comment = await this.commentRepository.create({ taskId: task.id, authorId: user.id, body, bodyText });

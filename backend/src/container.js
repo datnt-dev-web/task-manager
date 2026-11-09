@@ -8,6 +8,7 @@ const db = require('./models');
 
 const UnitOfWork = require('./repositories/unitOfWork');
 const UserRepository = require('./repositories/user.repository');
+const PasswordResetTokenRepository = require('./repositories/passwordResetToken.repository');
 const RefreshTokenRepository = require('./repositories/refreshToken.repository');
 const ProjectRepository = require('./repositories/project.repository');
 const ProjectMemberRepository = require('./repositories/projectMember.repository');
@@ -63,6 +64,7 @@ function buildContainer() {
     unitOfWork: new UnitOfWork(db.sequelize),
     userRepository: new UserRepository(db.User),
     refreshTokenRepository: new RefreshTokenRepository(db.RefreshToken),
+    passwordResetTokenRepository: new PasswordResetTokenRepository(db.PasswordResetToken),
     projectRepository: new ProjectRepository(db.Project, db),
     projectMemberRepository: new ProjectMemberRepository(db.ProjectMember, db),
     boardRepository: new BoardRepository(db.Board),

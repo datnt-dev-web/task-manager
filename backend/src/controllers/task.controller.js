@@ -18,6 +18,10 @@ class TaskController {
     res.json({ data: items, meta });
   };
 
+  quickSearch = async (req, res) => {
+    res.json({ data: await this.taskService.quickSearch(req.user, req.valid.query) });
+  };
+
   listMine = async (req, res) => {
     res.json({ data: await this.taskService.listMine(req.user) });
   };
@@ -29,7 +33,7 @@ class TaskController {
 
   /** Middleware: chặn Người xem / người ngoài trước khi multer đọc tệp. */
   assertCanUpload = async (req, _res, next) => {
-    await this.taskService.loadForAccess(req.user, req.valid.params.key, 'member');
+    await this.taskService.loadForParticipation(req.user, req.valid.params.key);
     next();
   };
 

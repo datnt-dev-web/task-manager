@@ -133,8 +133,8 @@ class SprintService {
    * `sprintId = null` là backlog; prevTaskId/nextTaskId là việc liền trên/dưới vị trí thả.
    */
   async plan(user, taskKey, { sprintId, prevTaskId, nextTaskId }) {
-    const { task, role } = await this.taskService.loadForAccess(user, taskKey, 'member');
-    this.taskService.assertCanMove(user, role, task);
+    // Lập kế hoạch sprint là việc của Quản trị viên / Quản lý dự án.
+    const { task } = await this.taskService.loadForAccess(user, taskKey, 'manager');
     if (sprintId) {
       const sprint = await this.sprintRepository.findById(sprintId);
       if (!sprint || sprint.projectId !== task.projectId || sprint.state === 'completed') {

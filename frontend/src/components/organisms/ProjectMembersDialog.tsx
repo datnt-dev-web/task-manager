@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const ROLES: ProjectRole[] = ['manager', 'member', 'viewer'];
+const ROLES: ProjectRole[] = ['manager', 'member'];
 
 /** PRJ-04: thêm/gỡ thành viên, đổi vai trò. Chỉ Quản lý dự án được sửa. */
 export function ProjectMembersDialog({ projectId, canManage, trigger }: { projectId: string; canManage: boolean; trigger: ReactNode }) {
@@ -26,7 +26,7 @@ export function ProjectMembersDialog({ projectId, canManage, trigger }: { projec
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Thành viên dự án</DialogTitle>
-          <DialogDescription>Người xem chỉ xem được, không sửa, không bình luận và không được giao việc.</DialogDescription>
+          <DialogDescription>Admin tạo, sửa, duyệt mọi công việc. Thành viên xem dự án, bình luận và cập nhật trạng thái việc được giao.</DialogDescription>
         </DialogHeader>
         {canManage && <AddMember projectId={projectId} existing={new Set(members.map((m) => m.userId))} />}
         <ul className="max-h-96 divide-y overflow-y-auto">

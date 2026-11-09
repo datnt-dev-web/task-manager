@@ -66,13 +66,15 @@ export function AppSidebar({ user }: { user: User }) {
 
         <SidebarGroup>
           <SidebarGroupLabel>Dự án của tôi</SidebarGroupLabel>
-          <CreateProjectDialog
-            trigger={
-              <SidebarGroupAction title="Tạo dự án" aria-label="Tạo dự án">
-                <Plus />
-              </SidebarGroupAction>
-            }
-          />
+          {user.isAdmin && (
+            <CreateProjectDialog
+              trigger={
+                <SidebarGroupAction title="Tạo dự án" aria-label="Tạo dự án">
+                  <Plus />
+                </SidebarGroupAction>
+              }
+            />
+          )}
           <SidebarMenu>
             {isLoading && Array.from({ length: 3 }, (_, i) => <SidebarMenuSkeleton key={i} showIcon />)}
             {projects?.map((project) => (

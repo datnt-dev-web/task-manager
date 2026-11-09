@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Link2, Trash2 } from 'lucide-react';
 import type { Board, RichDoc, Task, TaskType, User } from '@/domain/entities';
-import { CANNOT_MOVE_HINT, canEditTasks, canManageProject, canMoveTask } from '@/domain/rules/permissions';
+import {
+  CANNOT_MOVE_HINT,
+  canChangeColumn,
+  canEditTasks,
+  canManageProject,
+  canMoveTask,
+  canParticipate,
+  ONLY_MANAGER_COMPLETES_HINT,
+} from '@/domain/rules/permissions';
 import { isOverdue, TASK_TYPE_LABELS } from '@/domain/rules/task.rules';
 import { useBoard } from '@/application/board/useBoard';
 import { notify } from '@/application/notify';
@@ -13,7 +21,6 @@ import { useDeleteTask, useTask, useUpdateTask } from '@/application/tasks/useTa
 import { useAttachmentMutations, useWatchTask } from '@/application/tasks/useTaskExtras';
 import { inlineUrl } from '@/infrastructure/api/attachment.api';
 import { PageSpinner } from '@/components/atoms/Spinner';
-import { ReadOnlyBadge } from '@/components/atoms/ReadOnlyBadge';
 import { TaskKey } from '@/components/atoms/TaskKey';
 import { TaskTypeIcon } from '@/components/atoms/TaskTypeIcon';
 import { UserAvatar } from '@/components/atoms/UserAvatar';
@@ -72,7 +79,11 @@ function TaskDetail({
   currentUser: User;
   onDeleted: () => void;
 }) {
-  const canEdit = canEditTasks(role) && !task.project?.archivedAt;
+  const archived = !!task.project?.archivedAt;
+  const canEdit = canEditTasks(role) && !archived;
+  // Thành viên: chỉ bình luận / đính kèm tệp / đổi trạng thái việc được giao cho mình.
+  const canJoin = canParticipate(role, currentUser.id, task) && !archived;
+  const canMove = canMoveTask(role, currentUser.id, task) && !archived;
   const canManage = canManageProject(role);
   const canDelete = canEdit && (canManage || task.creatorId === currentUser.id);
   const update = useUpdateTask(task);
@@ -82,7 +93,7 @@ function TaskDetail({
   const { data: boardView } = useBoard(task.projectId);
   const watch = useWatchTask(task.key);
   const { upload } = useAttachmentMutations(task.key);
-  // RTE-06: mọi thành viên dự án (kể cả Người xem) đều có thể được @nhắc để đọc.
+  // RTE-06: mọi thành viên dự án đều có thể được @nhắc để đọc.
   const mentionables = useMemo<MentionItem[]>(
     () =>
       members
@@ -121,7 +132,6 @@ function TaskDetail({
             <TaskTypeIcon type={task.type} />
             <TaskKey value={task.key} />
             {task.project && <span className="text-muted-foreground truncate text-xs">· {task.project.name}</span>}
-            {!canEditTasks(role) && <ReadOnlyBadge />}
           </div>
           <DialogTitle asChild>
             <div className="text-xl font-semibold">
@@ -166,7 +176,7 @@ function TaskDetail({
 
         <SubtaskList task={task} members={members} canEdit={canEdit} />
 
-        <AttachmentList taskKey={task.key} currentUser={currentUser} canUpload={canEdit} canModerate={canManage} />
+        <AttachmentList taskKey={task.key} currentUser={currentUser} canUpload={canJoin} canModerate={canManage} />
 
         {/* CMT-03: chuyển xem Bình luận / Lịch sử */}
         <Tabs defaultValue="comments">
@@ -178,7 +188,7 @@ function TaskDetail({
             <CommentSection
               taskKey={task.key}
               currentUser={currentUser}
-              canComment={canEdit}
+              canComment={canJoin}
               canModerate={canManage}
               mentionables={mentionables}
               onUploadImage={uploadImage}
@@ -194,8 +204,9 @@ function TaskDetail({
         <StatusSelect
           task={task}
           board={boardView?.board}
-          disabled={!canEdit || !canMoveTask(role, currentUser.id, task)}
-          hint={canEdit && !canMoveTask(role, currentUser.id, task) ? CANNOT_MOVE_HINT : undefined}
+          disabled={!canMove}
+          hint={role === 'member' && !archived && !canMove ? CANNOT_MOVE_HINT : undefined}
+          canSelect={(column) => canChangeColumn(role, task.column ?? null, column)}
           onChange={(columnId) => update.mutate({ columnId })}
         />
         <Field label="Người làm">
@@ -298,15 +309,18 @@ function StatusSelect({
   board,
   disabled,
   hint,
+  canSelect,
   onChange,
 }: {
   task: Task;
   board?: Board;
   disabled: boolean;
   hint?: string;
+  canSelect: (column: Pick<Board['columns'][number], 'id' | 'isDone'>) => boolean;
   onChange: (columnId: string) => void;
 }) {
   const columns = board ? [...board.columns].sort((a, b) => a.position - b.position) : task.column ? [task.column] : [];
+  const restricted = !disabled && columns.some((c) => !canSelect(c));
   return (
     <Field label="Trạng thái">
       <Select value={task.columnId} disabled={disabled || !board} onValueChange={onChange}>
@@ -315,13 +329,15 @@ function StatusSelect({
         </SelectTrigger>
         <SelectContent>
           {columns.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
+            <SelectItem key={c.id} value={c.id} disabled={!canSelect(c)}>
               {c.name}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      {hint && <p className="text-muted-foreground px-2 text-xs">{hint}</p>}
+      {(hint ?? (restricted ? ONLY_MANAGER_COMPLETES_HINT : undefined)) && (
+        <p className="text-muted-foreground px-2 text-xs">{hint ?? ONLY_MANAGER_COMPLETES_HINT}</p>
+      )}
     </Field>
   );
 }

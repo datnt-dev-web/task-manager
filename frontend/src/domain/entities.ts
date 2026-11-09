@@ -2,7 +2,8 @@
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type UserStatus = 'invited' | 'active' | 'disabled';
-export type ProjectRole = 'manager' | 'member' | 'viewer';
+/** Chỉ 2 vai trò trong dự án: Admin (manager) và Thành viên (member). */
+export type ProjectRole = 'manager' | 'member';
 export type TaskType = 'task' | 'bug';
 export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low';
 
@@ -35,6 +36,8 @@ export interface User extends UserBrief {
   emailSettings: EmailSettings;
   lastLoginAt: string | null;
   createdAt: string;
+  /** Chỉ có ở người dùng của phiên hiện tại: đã đặt mật khẩu hay chỉ dùng Google. */
+  hasPassword?: boolean;
 }
 
 export interface Project {
@@ -234,4 +237,17 @@ export interface ActivityLog {
 export interface Paginated<T> {
   items: T[];
   meta: { page: number; pageSize: number; total: number };
+}
+
+/** DSH-02: tổng quan dự án. */
+export interface ProjectOverview {
+  total: number;
+  done: number;
+  open: number;
+  overdue: number;
+  /** Việc đang mở chưa có người làm. */
+  unassigned: number;
+  byColumn: { id: string; name: string; isDone: boolean; count: number }[];
+  /** `user = null` là nhóm "Chưa giao". */
+  byAssignee: { user: UserBrief | null; open: number; done: number; overdue: number }[];
 }

@@ -1,4 +1,4 @@
-const { Op, literal } = require('sequelize');
+const { Op, QueryTypes, literal } = require('sequelize');
 const BaseRepository = require('./base.repository');
 const { USER_BRIEF_ATTRIBUTES, LABEL_ATTRIBUTES } = require('./attributes');
 
@@ -75,6 +75,13 @@ class TaskRepository extends BaseRepository {
     if (filters.columnIds?.length) where.columnId = { [Op.in]: filters.columnIds };
     if (filters.priorities?.length) where.priority = { [Op.in]: filters.priorities };
     if (filters.type) where.type = filters.type;
+    const andConditions = [];
+    if (filters.due === 'none') where.dueDate = null;
+    else if (filters.due === 'overdue') andConditions.push({ completedAt: null, dueDate: { [Op.lt]: filters.today } });
+    else if (filters.due === 'soon') {
+      andConditions.push({ completedAt: null, dueDate: { [Op.gte]: filters.today, [Op.lte]: filters.soonUntil } });
+    }
+    if (andConditions.length) where[Op.and] = andConditions;
     if (filters.dueFrom || filters.dueTo) {
       where.dueDate = {
         ...(filters.dueFrom ? { [Op.gte]: filters.dueFrom } : {}),
@@ -91,13 +98,11 @@ class TaskRepository extends BaseRepository {
     }
 
     const include = this.cardIncludes();
-    if (filters.labelId) {
+    const labelIds = [...(filters.labelIds ?? []), ...(filters.labelId ? [filters.labelId] : [])];
+    if (labelIds.length) {
       // Lọc theo nhãn nhưng vẫn trả đủ nhãn của công việc.
-      where.id = {
-        [Op.in]: literal(
-          `(SELECT task_id FROM task_labels WHERE label_id = ${this.model.sequelize.escape(filters.labelId)})`,
-        ),
-      };
+      const escaped = labelIds.map((id) => this.model.sequelize.escape(id)).join(', ');
+      where.id = { [Op.in]: literal(`(SELECT task_id FROM task_labels WHERE label_id IN (${escaped}))`) };
     }
 
     const sortField = SORT_FIELDS[filters.sort] || 'createdAt';
@@ -112,6 +117,31 @@ class TaskRepository extends BaseRepository {
         [sortField, `${filters.order === 'asc' ? 'ASC' : 'DESC'} NULLS LAST`],
         ['number', 'DESC'],
       ],
+    });
+  }
+
+  /**
+   * SRC-03: tìm nhanh theo mã / tiêu đề trong các dự án được xem (projectIds = null → mọi dự án).
+   * Bỏ qua dự án đã lưu trữ; mã khớp chính xác lên đầu, sau đó việc mới cập nhật.
+   */
+  quickSearch(projectIds, q, limit) {
+    const where = {
+      [Op.or]: [{ key: { [Op.iLike]: `${q}%` } }, { title: { [Op.iLike]: `%${q}%` } }],
+    };
+    if (projectIds) where.projectId = { [Op.in]: projectIds };
+    return this.model.findAll({
+      where,
+      attributes: ['id', 'key', 'title', 'type', 'priority', 'dueDate', 'completedAt', 'projectId', 'columnId', 'updatedAt'],
+      include: [
+        { model: this.User, as: 'assignee', attributes: USER_BRIEF_ATTRIBUTES },
+        { model: this.Project, as: 'project', attributes: ['id', 'key', 'name', 'color'], where: { archivedAt: null } },
+        { model: this.BoardColumn, as: 'column', attributes: ['id', 'name', 'isDone'] },
+      ],
+      order: [
+        [literal(`CASE WHEN "Task"."key" ILIKE ${this.model.sequelize.escape(q)} THEN 0 ELSE 1 END`), 'ASC'],
+        ['updatedAt', 'DESC'],
+      ],
+      limit,
     });
   }
 
@@ -202,6 +232,27 @@ class TaskRepository extends BaseRepository {
   }
 
   /** Việc chưa xong có người làm, đến hạn đúng ngày `isoDate`, dự án chưa lưu trữ (nhắc hạn, BR-08). */
+  /**
+   * DSH-02: số liệu tổng quan dự án, gom ngay trong DB (không tải từng công việc).
+   * `today` là ngày theo múi giờ nghiệp vụ (YYYY-MM-DD) để tính quá hạn.
+   */
+  async overviewCounts(projectId, today) {
+    const select = (sql) =>
+      this.model.sequelize.query(sql, { replacements: { projectId, today }, type: QueryTypes.SELECT });
+    const [byColumn, byAssignee] = await Promise.all([
+      select(`SELECT column_id AS "columnId", COUNT(*)::int AS count
+                FROM tasks WHERE project_id = :projectId AND deleted_at IS NULL
+               GROUP BY column_id`),
+      select(`SELECT assignee_id AS "assigneeId",
+                     COUNT(*) FILTER (WHERE completed_at IS NULL)::int AS open,
+                     COUNT(*) FILTER (WHERE completed_at IS NOT NULL)::int AS done,
+                     COUNT(*) FILTER (WHERE completed_at IS NULL AND due_date < :today)::int AS overdue
+                FROM tasks WHERE project_id = :projectId AND deleted_at IS NULL
+               GROUP BY assignee_id`),
+    ]);
+    return { byColumn, byAssignee };
+  }
+
   findOpenDueOn(isoDate) {
     return this.model.findAll({
       where: { dueDate: isoDate, completedAt: null, assigneeId: { [Op.ne]: null } },

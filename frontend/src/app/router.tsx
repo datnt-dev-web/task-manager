@@ -13,6 +13,14 @@ export const router = createBrowserRouter([
         lazy: () => import('@/pages/LoginPage').then((m) => ({ Component: m.LoginPage })),
       },
       {
+        path: '/forgot-password',
+        lazy: () => import('@/pages/ForgotPasswordPage').then((m) => ({ Component: m.ForgotPasswordPage })),
+      },
+      {
+        path: '/reset-password',
+        lazy: () => import('@/pages/ResetPasswordPage').then((m) => ({ Component: m.ResetPasswordPage })),
+      },
+      {
         element: <RequireAuth />,
         children: [
       { index: true, lazy: () => import('@/pages/MyWorkPage').then((m) => ({ Component: m.MyWorkPage })) },

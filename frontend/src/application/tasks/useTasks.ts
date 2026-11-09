@@ -20,6 +20,16 @@ export const useTaskList = (projectId: string, query: TaskListQuery) =>
     enabled: !!projectId,
   });
 
+/** SRC-03: gợi ý kết quả tìm kiếm toàn hệ thống khi đang gõ. */
+export const useQuickSearch = (q: string) =>
+  useQuery({
+    queryKey: ['search', q],
+    queryFn: () => taskApi.quickSearch(q),
+    enabled: q.length > 0,
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+  });
+
 /** TSK-05: sửa tại chỗ, đồng bộ mọi nơi đang hiển thị công việc. */
 export function useUpdateTask(task: Pick<Task, 'key' | 'projectId'>) {
   const queryClient = useQueryClient();
